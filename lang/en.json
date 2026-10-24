@@ -1,0 +1,74 @@
+{
+  "RNPLAYCOMP": {
+    "Settings": {
+      "DuckStrength": {
+        "Name": "Audio ducking during preview",
+        "Hint": "0% leaves other sounds unchanged; 100% silences music, environment, and interface sounds during preview."
+      },
+      "SoundRowBudget": {
+        "Name": "Minimum displayed sounds",
+        "Hint": "The number of sound rows kept in the list across all expanded playlists. This increases automatically when a taller window needs more rows. A lower value reduces interface load but may update rows more often while scrolling. A higher value keeps more nearby rows ready but increases interface load."
+      }
+    },
+    "UI": {
+      "MakeGlobal": "Make global",
+      "MakeLocal": "Make local here",
+      "GlobalHint": "Global in all worlds",
+      "ManagementMode": "Management mode",
+      "ShowHidden": "Show hidden playlists",
+      "Hide": "Hide from playlist list",
+      "Show": "Show in playlist list",
+      "HiddenHint": "Hidden from playlist list",
+      "Preview": "Preview",
+      "StopPreview": "Stop preview",
+      "PreviewVolume": "Preview",
+      "DuckMusic": "Lower other sounds during preview",
+      "DeleteEverywhere": "Delete globally",
+      "DeleteGlobalPlaylist": "Delete global playlist",
+      "DeleteGlobalPlaylistConfirm": "Playlist “{name}” will be deleted from all worlds.",
+      "DeleteGlobalFolder": "Delete global folder",
+      "DeleteGlobalFolderConfirm": "Folder “{name}” and all its contents will be deleted from all worlds.\nFolders: {folders}, playlists: {playlists}.",
+      "MoveGlobal": "Make global",
+      "MoveLocal": "Make local",
+      "Move": "Move",
+      "MoveFolderConfirm": "Move folder “{name}” and all its contents {destination}?\nFolders: {folders}, playlists: {playlists}.\nScene links to moved playlists in other worlds may need to be selected again.",
+      "MovePlaylistConfirm": "Move playlist “{name}” {destination}?\nFolders: {folders}, playlists: {playlists}.\nScene links to moved playlists in other worlds may need to be selected again.",
+      "ToGlobal": "to global storage for all worlds",
+      "ToLocal": "to this world only"
+    },
+    "Errors": {
+      "SoundNotFound": "Sound {id} was not found.",
+      "GlobalPlaylistNotFound": "Global playlist not found.",
+      "GMOnlyMove": "Only a GM can move playlists.",
+      "NotPlaylistFolder": "This is not a playlist folder.",
+      "AlreadyGlobal": "This item is already global.",
+      "TargetNotGlobal": "The destination folder is not global.",
+      "DuplicateID": "A global item already has the same ID.",
+      "GlobalSavedLocalDeleteFailed": "Global data was saved, but removing a local original failed: {reason}.\nReload the world and check for duplicates.",
+      "NotGlobal": "This item is not global.",
+      "TargetGlobal": "The destination folder is global.",
+      "MakeLocalFailed": "Could not make this item local: {reason}",
+      "StorageUnavailable": "Global playlist storage directory is unavailable. Join as GM to initialize it.",
+      "MissingIndex": "Global playlist storage index.json is missing. Restore it from a backup.",
+      "ReadHTTP": "Cannot read global playlist storage file (HTTP {status}).",
+      "UnsupportedFile": "Global playlist storage file has an unsupported format.",
+      "UnsupportedFolders": "Global folder data has an unsupported format.",
+      "PrivateFailed": "Could not mark {directory} private in the File Picker.",
+      "UploadFailed": "Foundry did not overwrite {path}; returned {result}.",
+      "GMOnlyEdit": "Only a GM can edit global playlists.",
+      "Stale": "Another GM changed global data. Reload this world before editing.",
+      "RevisionMismatch": "Global playlist data changed in another GM client. Reload before editing.",
+      "MixedFolders": "A global item cannot be inside a local folder.",
+      "FolderCollision": "Folder ID collision: {id}.",
+      "GMOnlyCreatePlaylist": "Only a GM can create a global playlist.",
+      "DirectPlaylistToGlobal": "Use the playlist move control to make this playlist global.",
+      "DirectPlaylistToLocal": "Use the playlist move control to make this playlist local.",
+      "GMOnlyCreateFolder": "Only a GM can create a global folder.",
+      "DirectFolderToGlobal": "Use the folder move control to make this branch global.",
+      "DirectFolderToLocal": "Use the folder move control to make this branch local.",
+      "ImportFirst": "Import this item to the world first, then make it global.",
+      "PreviewMissingPath": "This sound has no audio file.",
+      "PreviewFailed": "Could not play preview: {reason}"
+    }
+  }
+}

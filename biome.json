@@ -1,0 +1,46 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "files": {
+    "includes": [
+      "scripts/**/*.mjs",
+      "styles/**/*.css",
+      "tests/**/*.mjs",
+      "lang/**/*.json",
+      "module.json",
+      "package.json"
+    ]
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "json": {
+    "formatter": {
+      "expand": "always"
+    }
+  },
+  "javascript": {
+    "globals": [
+      "Hooks",
+      "game",
+      "ui",
+      "foundry",
+      "File",
+      "fromUuid",
+      "fromUuidSync",
+      "CONFIG",
+      "CONST",
+      "Folder",
+      "DialogV2"
+    ],
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  },
+  "linter": {
+    "rules": {
+      "preset": "recommended"
+    }
+  }
+}

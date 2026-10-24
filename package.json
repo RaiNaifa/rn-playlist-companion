@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "scripts": {
+    "check": "node node_modules/@biomejs/biome/bin/biome check . && node --test",
+    "fix": "node node_modules/@biomejs/biome/bin/biome check --write . && node --test",
+    "format": "node node_modules/@biomejs/biome/bin/biome format --write scripts styles tests module.json package.json biome.json"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15"
+  }
+}
