@@ -2,13 +2,20 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { storedData } from "../scripts/audio/playback-state.mjs";
-import { state } from "../scripts/core/context.mjs";
+import { error, reportError, state } from "../scripts/core/context.mjs";
 import { installFolder, installInClient, removeFromClient } from "../scripts/foundry/client-collection.mjs";
 import { patchDocumentMethods } from "../scripts/foundry/document-bridge.mjs";
 import { onSocket } from "../scripts/foundry/socket-sync.mjs";
-import { moveBranchToGlobal, moveBranchToLocal, reloadGlobalPlaylists } from "../scripts/library/global-library.mjs";
+import { forgetArchiveEntry, restoreArchived, restorePlan } from "../scripts/library/archive.mjs";
+import { resolveLocalConflict } from "../scripts/library/conflicts.mjs";
+import {
+  moveBranchToGlobal,
+  moveBranchToLocal,
+  reloadGlobalPlaylists,
+  removeGlobal,
+} from "../scripts/library/global-library.mjs";
 import { filterHiddenTree, isHidden, setHidden } from "../scripts/library/visibility.mjs";
-import { persist, readStore } from "../scripts/storage/global-store.mjs";
+import { persist, readArchive, readStore, serialize } from "../scripts/storage/global-store.mjs";
 import { handleDrop } from "../scripts/ui/playlist-sidebar.mjs";
 
 class Collection extends Map {
@@ -30,17 +37,21 @@ function translation(key, data = {}) {
   return text.replace(/\{(\w+)\}/g, (_, name) => String(data[name]));
 }
 
-function setup({ uploadFails = false } = {}) {
+function setup({ uploadFails = false, directoryExists = true } = {}) {
+  let generatedIds = 0;
   const files = new Map([
     ["rn-global-playlists/index.json", { schema: 2, revision: 0, folders: [], playlists: [], worlds: [] }],
     ["rn-global-playlists/revision.json", { schema: 1, revision: 0 }],
   ]);
+  const directories = new Set(
+    directoryExists ? ["rn-global-playlists", "rn-global-playlists/playlists", "rn-global-playlists/playback"] : [],
+  );
   const events = [];
   const hiddenByWorld = new Map();
   const folders = new Collection();
   const playlists = new Collection();
 
-  globalThis.ui = { notifications: { error() {} } };
+  globalThis.ui = { notifications: { error() {}, warn() {} } };
   globalThis.game = {
     user: { id: "gm", isGM: true },
     i18n: { localize: (key) => translation(key), format: translation },
@@ -58,15 +69,19 @@ function setup({ uploadFails = false } = {}) {
     socket: { emit: (_channel, message) => events.push(message.type) },
   };
   globalThis.foundry = {
-    utils: { deepClone: structuredClone },
+    utils: { deepClone: structuredClone, randomID: () => `generated${++generatedIds}` },
     applications: {
       apps: {
         FilePicker: {
-          createDirectory: async () => {
-            throw new Error("Directory already exists");
+          createDirectory: async (_source, directory) => {
+            if (directories.has(directory)) throw new Error("Directory already exists");
+            directories.add(directory);
           },
           configurePath: async () => ({ private: true }),
-          browse: async (_source, directory) => ({ target: directory, files: [...files.keys()] }),
+          browse: async (_source, directory) => {
+            if (!directories.has(directory)) throw new Error("Directory does not exist");
+            return { target: directory, files: [...files.keys()] };
+          },
           upload: async (_source, directory, file) => {
             const path = `${directory}/${file.name}`;
             events.push(`upload:${path}`);
@@ -153,6 +168,11 @@ function setup({ uploadFails = false } = {}) {
 
   state.folders = new Map();
   state.playlists = new Map();
+  state.blockedFolders = new Map();
+  state.blockedPlaylists = new Map();
+  state.conflicts = [];
+  state.playlistOrder = [];
+  state.folderOrder = [];
   state.playbackByWorld = {};
   state.revision = 0;
   state.queue = Promise.resolve();
@@ -197,6 +217,10 @@ function addLocalFolder(folders, events, id, parent = null) {
     documentName: "Folder",
     _source: source,
     toObject: () => structuredClone(source),
+    update: async (changes) => {
+      Object.assign(source, changes);
+      events.push(`update:${id}`);
+    },
     delete: async () => {
       events.push(`delete:${id}`);
       folders.delete(id);
@@ -221,6 +245,10 @@ function addLocalPlaylist(playlists, events, id, parent) {
     documentName: "Playlist",
     _source: source,
     toObject: () => structuredClone(source),
+    update: async (changes) => {
+      Object.assign(source, changes);
+      events.push(`update:${id}`);
+    },
     delete: async () => {
       events.push(`delete:${id}`);
       playlists.delete(id);
@@ -256,6 +284,23 @@ function holdFirstIndexRead({ failFirst = false } = {}) {
   };
   return { started: started.promise, release: release.resolve, reads: () => reads };
 }
+
+test("localized errors notify once when an action reports them", () => {
+  setup();
+  const notices = [];
+  ui.notifications.error = (message) => notices.push(message);
+  const previousConsoleError = console.error;
+  console.error = () => {};
+  try {
+    const failure = error("UnsupportedFile");
+    assert.deepEqual(notices, []);
+    reportError(failure);
+    reportError(failure);
+    assert.deepEqual(notices, [failure.message]);
+  } finally {
+    console.error = previousConsoleError;
+  }
+});
 
 test("moving a nested folder saves all original IDs and separates playback by world", async () => {
   const { folders, playlists, events, getDisk } = setup();
@@ -370,14 +415,15 @@ test("changing one sound among 200 playlists writes only its playlist file and t
   assert.equal(files.get("rn-global-playlists/index.json").revision, 0);
   assert.equal(files.get("rn-global-playlists/playlists/playlist72.json").sounds[0].path, "audio/changed.ogg");
   assert.equal(files.get("rn-global-playlists/playlists/playlist73.json").sounds[0].path, "audio/73.ogg");
+  assert.equal(files.has("rn-global-playlists/archive.json"), false);
 });
 
 test("a fresh GM world initializes an empty split store", async () => {
-  const { files } = setup();
+  const { files } = setup({ directoryExists: false });
   files.delete("rn-global-playlists/index.json");
   files.delete("rn-global-playlists/revision.json");
 
-  const data = await readStore({ create: true });
+  const data = await readStore();
 
   assert.deepEqual(data.playlists, []);
   assert.deepEqual(data.folders, []);
@@ -385,32 +431,169 @@ test("a fresh GM world initializes an empty split store", async () => {
   assert.deepEqual(files.get("rn-global-playlists/revision.json"), { schema: 1, revision: 0 });
 });
 
-test("missing index with an existing revision never initializes an empty store", async () => {
+test("missing index reconnects every playlist file and moves it to the root", async () => {
   const { files } = setup();
+  files.set("rn-global-playlists/playlists/kept.json", {
+    _id: "kept",
+    name: "Kept",
+    folder: "lost-folder",
+    sounds: [],
+  });
+  files.set("rn-global-playlists/playlists/old.json", { _id: "old", name: "Old", folder: null, sounds: [] });
   files.delete("rn-global-playlists/index.json");
 
-  await assert.rejects(readStore({ create: true }), /index.json is missing/);
+  const data = await readStore();
+  assert.deepEqual(
+    data.playlists.map((playlist) => playlist._id),
+    ["kept", "old"],
+  );
+  assert.equal(data.playlists[0].folder, null);
+  assert.deepEqual(files.get("rn-global-playlists/index.json").playlists, ["kept", "old"]);
 });
 
-test("a missing indexed playlist aborts loading instead of silently hiding it", async () => {
+test("missing index and revision are recreated around remaining playlist files", async () => {
+  const { files } = setup();
+  files.delete("rn-global-playlists/index.json");
+  files.delete("rn-global-playlists/revision.json");
+  files.set("rn-global-playlists/playlists/retained.json", { _id: "retained", sounds: [] });
+
+  const data = await readStore();
+  assert.deepEqual(
+    data.playlists.map((playlist) => playlist._id),
+    ["retained"],
+  );
+  assert.equal(files.has("rn-global-playlists/playlists/retained.json"), true);
+  assert.deepEqual(files.get("rn-global-playlists/revision.json"), { schema: 1, revision: 0 });
+});
+
+test("a missing revision file is recreated from the existing index", async () => {
+  const { files, setDisk } = setup();
+  setDisk({ revision: 4, folders: [], playlists: [], playbackByWorld: {} });
+  files.delete("rn-global-playlists/revision.json");
+
+  const data = await readStore();
+
+  assert.equal(data.revision, 4);
+  assert.deepEqual(files.get("rn-global-playlists/revision.json"), { schema: 1, revision: 4 });
+});
+
+test("a missing indexed playlist gets a new empty file with the same ID", async () => {
   const { setDisk, files } = setup();
   setDisk({
     revision: 1,
     folders: [],
     playlists: [{ _id: "global", name: "Global", folder: null, sounds: [] }],
-    playbackByWorld: {},
+    playbackByWorld: { "world-a": { global: { playing: true, sounds: { old: { playing: true } } } } },
   });
   files.delete("rn-global-playlists/playlists/global.json");
 
-  await assert.rejects(readStore(), /HTTP 404/);
+  const data = await readStore();
+  assert.equal(data.playlists[0]._id, "global");
+  assert.deepEqual(data.playlists[0].sounds, []);
+  assert.deepEqual(data.playbackByWorld["world-a"], {});
+  assert.equal(files.get("rn-global-playlists/playlists/global.json").name, "Recovered playlist global");
 });
 
-test("a missing indexed world playback file aborts loading", async () => {
+test("a missing indexed world playback file is recreated empty", async () => {
   const { setDisk, files } = setup();
   setDisk({ revision: 1, folders: [], playlists: [], playbackByWorld: { "world-a": {} } });
   files.delete("rn-global-playlists/playback/world-a.json");
 
-  await assert.rejects(readStore(), /HTTP 404/);
+  const data = await readStore();
+  assert.deepEqual(data.playbackByWorld["world-a"], {});
+  assert.deepEqual(files.get("rn-global-playlists/playback/world-a.json"), {
+    schema: 1,
+    world: "world-a",
+    playlists: {},
+  });
+});
+
+test("missing playlists, playback, revision and archive recover together", async () => {
+  const { setDisk, files } = setup();
+  setDisk({
+    revision: 3,
+    folders: [],
+    playlists: [
+      { _id: "lost-a", name: "A", sounds: [] },
+      { _id: "lost-b", name: "B", sounds: [] },
+    ],
+    playbackByWorld: {
+      "world-a": { "lost-a": { playing: true } },
+      "world-b": { "lost-b": { playing: true } },
+    },
+  });
+  files.get("rn-global-playlists/index.json").archive = true;
+  for (const path of [
+    "revision.json",
+    "archive.json",
+    "playlists/lost-a.json",
+    "playlists/lost-b.json",
+    "playback/world-a.json",
+    "playback/world-b.json",
+  ])
+    files.delete(`rn-global-playlists/${path}`);
+
+  const data = await readStore();
+
+  assert.deepEqual(
+    data.playlists.map((playlist) => playlist._id),
+    ["lost-a", "lost-b"],
+  );
+  assert.ok(data.playlists.every((playlist) => playlist.sounds.length === 0));
+  assert.equal(data.revision, 3);
+  assert.deepEqual(data.playbackByWorld["world-a"], {});
+  assert.deepEqual(files.get("rn-global-playlists/playback/world-b.json").playlists, {});
+  assert.deepEqual(files.get("rn-global-playlists/archive.json"), { schema: 1, entries: [] });
+});
+
+test("recreating a playlist clears its stale playback in another world", async () => {
+  const { setDisk, files } = setup();
+  setDisk({
+    revision: 2,
+    folders: [],
+    playlists: [{ _id: "lost", name: "Lost", sounds: [] }],
+    playbackByWorld: {
+      "world-a": { lost: { playing: true } },
+      "world-b": { lost: { playing: true } },
+    },
+  });
+  files.delete("rn-global-playlists/playlists/lost.json");
+  files.delete("rn-global-playlists/playback/world-a.json");
+
+  await readStore();
+
+  assert.deepEqual(files.get("rn-global-playlists/playback/world-a.json").playlists, {});
+  assert.deepEqual(files.get("rn-global-playlists/playback/world-b.json").playlists, {});
+});
+
+test("missing index rebuilds references when revision and archive are also absent", async () => {
+  const { files } = setup();
+  files.set("rn-global-playlists/playlists/remaining.json", {
+    _id: "remaining",
+    name: "Remaining",
+    folder: "missing-folder",
+    sounds: [],
+  });
+  files.set("rn-global-playlists/playback/world-a.json", {
+    schema: 1,
+    world: "world-a",
+    playlists: { remaining: { playing: true } },
+  });
+  for (const path of ["index.json", "revision.json", "archive.json"]) {
+    files.delete(`rn-global-playlists/${path}`);
+  }
+
+  const data = await readStore();
+
+  assert.deepEqual(
+    data.playlists.map((playlist) => playlist._id),
+    ["remaining"],
+  );
+  assert.equal(data.playlists[0].folder, null);
+  assert.deepEqual(files.get("rn-global-playlists/index.json").worlds, ["world-a"]);
+  assert.deepEqual(data.playbackByWorld["world-a"], { remaining: { playing: true } });
+  assert.deepEqual(files.get("rn-global-playlists/revision.json"), { schema: 1, revision: 0 });
+  assert.deepEqual(files.get("rn-global-playlists/archive.json"), { schema: 1, entries: [] });
 });
 
 test("failed revision commit restores an edited playlist file", async () => {
@@ -456,6 +639,489 @@ test("removing a playlist clears playback in other worlds", async () => {
   assert.ok(events.includes("upload:rn-global-playlists/playback/world-b.json"));
 });
 
+test("deleting a global playlist archives its last data before removing it from the active index", async () => {
+  const { files, playlists, setDisk } = setup();
+  const item = {
+    _id: "global",
+    name: "Tavern",
+    folder: null,
+    sounds: [{ _id: "fire", name: "Fire", path: "audio/fire.ogg", playing: true }],
+  };
+  setDisk({ revision: 0, folders: [], playlists: [item], playbackByWorld: {} });
+  const document = new foundry.documents.Playlist(item);
+  playlists.set(item._id, document);
+  state.playlists.set(item._id, document);
+
+  await removeGlobal(item._id);
+
+  const archive = await readArchive();
+  assert.equal(archive.entries.length, 1);
+  assert.equal(archive.entries[0].type, "playlist");
+  assert.equal(archive.entries[0].reason, "deleted");
+  assert.equal(archive.entries[0].data.sounds[0].name, "Fire");
+  assert.equal(archive.entries[0].data.sounds[0].playing, false);
+  assert.deepEqual(files.get("rn-global-playlists/index.json").playlists, []);
+  assert.equal(files.get("rn-global-playlists/index.json").archive, true);
+  files.delete("rn-global-playlists/archive.json");
+  await assert.rejects(readArchive(), /archive.json is missing/);
+});
+
+test("a GM starts a new empty archive after its file disappears, without changing active playlists", async () => {
+  const { files, events, setDisk } = setup();
+  const playlist = { _id: "global", name: "Tavern", folder: null, sounds: [] };
+  setDisk({ revision: 3, folders: [], playlists: [playlist], playbackByWorld: {} });
+  files.get("rn-global-playlists/index.json").archive = true;
+  const warnings = [];
+  ui.notifications.warn = (message) => warnings.push(message);
+
+  const loaded = await readStore();
+  assert.deepEqual(loaded.playlists, [playlist]);
+  assert.deepEqual(files.get("rn-global-playlists/archive.json"), { schema: 1, entries: [] });
+  assert.equal(warnings.length, 1);
+  await readStore();
+  assert.equal(warnings.length, 1);
+  assert.equal(events.filter((event) => event === "upload:rn-global-playlists/archive.json").length, 1);
+});
+
+test("a failed revision write restores the active index and previous archive contents", async () => {
+  const { files, playlists, setDisk } = setup({ uploadFails: "rn-global-playlists/revision.json" });
+  const item = { _id: "global", name: "Tavern", folder: null, sounds: [] };
+  setDisk({ revision: 0, folders: [], playlists: [item], playbackByWorld: {} });
+  files.set("rn-global-playlists/archive.json", { schema: 1, entries: [] });
+  const document = new foundry.documents.Playlist(item);
+  playlists.set(item._id, document);
+  state.playlists.set(item._id, document);
+
+  await assert.rejects(removeGlobal(item._id), /Disk write failed/);
+
+  assert.deepEqual(files.get("rn-global-playlists/index.json").playlists, ["global"]);
+  assert.deepEqual(files.get("rn-global-playlists/archive.json").entries, []);
+  assert.equal(state.playlists.get("global"), document);
+});
+
+test("removing an archived folder removes the saved branch from the one archive file", async () => {
+  const { files } = setup();
+  files.set("rn-global-playlists/archive.json", {
+    schema: 1,
+    entries: [
+      {
+        archiveId: "folder-entry",
+        batchId: "batch",
+        type: "folder",
+        id: "folder",
+        name: "Folder",
+        reason: "deleted",
+        data: { _id: "folder", folder: null, type: "Playlist" },
+      },
+      {
+        archiveId: "playlist-entry",
+        batchId: "batch",
+        type: "playlist",
+        id: "playlist",
+        name: "Playlist",
+        reason: "deleted",
+        data: { _id: "playlist", folder: "folder", sounds: [] },
+      },
+    ],
+  });
+
+  await forgetArchiveEntry("folder-entry");
+
+  assert.deepEqual((await readArchive()).entries, []);
+});
+
+test("restoring an older playlist separately keeps both versions and the archive snapshot", async () => {
+  const { files, playlists, setDisk } = setup();
+  const current = { _id: "global", name: "New", folder: null, sounds: [{ _id: "new", name: "New sound" }] };
+  const archived = { _id: "global", name: "Old", folder: null, sounds: [{ _id: "old", name: "Old sound" }] };
+  setDisk({ revision: 0, folders: [], playlists: [current], playbackByWorld: {} });
+  const document = new foundry.documents.Playlist(current);
+  playlists.set(current._id, document);
+  state.playlists.set(current._id, document);
+  files.set("rn-global-playlists/archive.json", {
+    schema: 1,
+    entries: [
+      {
+        archiveId: "snapshot",
+        batchId: "batch",
+        type: "playlist",
+        id: "global",
+        name: "Old",
+        reason: "deleted",
+        world: null,
+        archivedAt: "2026-10-24T18:30:00Z",
+        data: archived,
+      },
+    ],
+  });
+
+  const scene = {
+    _source: { playlist: "global", playlistSound: "old" },
+    async update(changes) {
+      Object.assign(this._source, changes);
+    },
+  };
+  game.scenes.push(scene);
+
+  const plan = await restoreArchived("snapshot", "separate", { relinkScenes: true });
+
+  assert.notEqual(plan.playlists[0]._id, "global");
+  assert.equal(state.playlists.get("global").toObject().name, "New");
+  assert.equal(state.playlists.get(plan.playlists[0]._id).toObject().name, "Old");
+  assert.equal(scene._source.playlist, plan.playlists[0]._id);
+  assert.equal((await readArchive()).entries[0].restoredAs, plan.playlists[0]._id);
+});
+
+test("a failed scene relink does not undo other scene links or the restored playlist", async () => {
+  const { files, playlists, setDisk } = setup();
+  const current = { _id: "global", name: "Current", folder: null, sounds: [] };
+  setDisk({ revision: 0, folders: [], playlists: [current], playbackByWorld: {} });
+  const document = new foundry.documents.Playlist(current);
+  playlists.set(current._id, document);
+  state.playlists.set(current._id, document);
+  files.set("rn-global-playlists/archive.json", {
+    schema: 1,
+    entries: [
+      {
+        archiveId: "snapshot",
+        batchId: "batch",
+        type: "playlist",
+        id: "global",
+        name: "Old",
+        reason: "deleted",
+        world: null,
+        archivedAt: "2026-10-24T18:30:00Z",
+        data: { _id: "global", name: "Old", folder: null, sounds: [] },
+      },
+    ],
+  });
+  foundry.utils.escapeHTML = (text) => String(text);
+  let result;
+  foundry.applications.api = {
+    DialogV2: {
+      prompt: async (options) => {
+        result = options;
+      },
+    },
+  };
+  const successful = {
+    id: "scene-a",
+    name: "Tavern",
+    _source: { playlist: "global" },
+    async update(changes) {
+      Object.assign(this._source, changes);
+    },
+  };
+  const failing = {
+    id: "scene-b",
+    name: "Forest",
+    _source: { playlist: "global" },
+    async update() {
+      throw new Error("Update failed");
+    },
+  };
+  game.scenes.push(successful, failing);
+
+  const plan = await restoreArchived("snapshot", "separate", { relinkScenes: true });
+
+  assert.equal(successful._source.playlist, plan.playlists[0]._id);
+  assert.equal(failing._source.playlist, "global");
+  assert.ok(state.playlists.has(plan.playlists[0]._id));
+  assert.match(result.content, /Forest.*scene-b/);
+});
+
+test("replacing a current global playlist saves that version in the same archive", async () => {
+  const { files, playlists, setDisk } = setup();
+  const current = { _id: "global", name: "New", folder: null, sounds: [] };
+  const archived = { _id: "global", name: "Old", folder: null, sounds: [] };
+  setDisk({ revision: 0, folders: [], playlists: [current], playbackByWorld: {} });
+  const document = new foundry.documents.Playlist(current);
+  playlists.set(current._id, document);
+  state.playlists.set(current._id, document);
+  files.set("rn-global-playlists/archive.json", {
+    schema: 1,
+    entries: [
+      {
+        archiveId: "snapshot",
+        batchId: "batch",
+        type: "playlist",
+        id: "global",
+        name: "Old",
+        reason: "deleted",
+        world: null,
+        archivedAt: "2026-10-24T18:30:00Z",
+        data: archived,
+      },
+    ],
+  });
+
+  await restoreArchived("snapshot", "replace");
+
+  assert.equal(state.playlists.get("global").toObject().name, "Old");
+  const entries = (await readArchive()).entries;
+  assert.equal(entries.length, 2);
+  assert.equal(entries.find((entry) => entry.reason === "replaced").data.name, "New");
+  assert.equal(entries.find((entry) => entry.archiveId === "snapshot").data.name, "Old");
+});
+
+test("folder restoration remaps occupied IDs and keeps every parent link within the branch", () => {
+  setup();
+  const entries = [
+    { archiveId: "root", batchId: "batch", type: "folder", id: "folder", data: { _id: "folder", folder: null } },
+    { archiveId: "child", batchId: "batch", type: "folder", id: "child", data: { _id: "child", folder: "folder" } },
+    {
+      archiveId: "list",
+      batchId: "batch",
+      type: "playlist",
+      id: "list",
+      data: { _id: "list", folder: "child", sounds: [] },
+    },
+  ];
+  const plan = restorePlan(entries[0], entries, {
+    mode: "separate",
+    playlists: [],
+    folders: [],
+    localPlaylistIds: ["list"],
+    localFolderIds: ["folder"],
+  });
+
+  assert.notEqual(plan.folders[0]._id, "folder");
+  assert.notEqual(plan.playlists[0]._id, "list");
+  assert.equal(plan.folders[1].folder, plan.folders[0]._id);
+  assert.equal(plan.playlists[0].folder, plan.folders[1]._id);
+});
+
+test("restoring an archived folder installs its nested branch and retains its snapshot", async () => {
+  const { files, getDisk } = setup();
+  files.set("rn-global-playlists/archive.json", {
+    schema: 1,
+    entries: [
+      {
+        archiveId: "root",
+        batchId: "batch",
+        type: "folder",
+        id: "root",
+        name: "Root",
+        reason: "deleted",
+        data: { _id: "root", name: "Root", type: "Playlist", folder: null },
+      },
+      {
+        archiveId: "child",
+        batchId: "batch",
+        type: "folder",
+        id: "child",
+        name: "Child",
+        reason: "deleted",
+        data: { _id: "child", name: "Child", type: "Playlist", folder: "root" },
+      },
+      {
+        archiveId: "list",
+        batchId: "batch",
+        type: "playlist",
+        id: "list",
+        name: "Music",
+        reason: "deleted",
+        data: { _id: "list", name: "Music", folder: "child", sounds: [] },
+      },
+    ],
+  });
+
+  await restoreArchived("root", "separate");
+
+  assert.deepEqual(
+    getDisk().folders.map((item) => [item._id, item.folder]),
+    [
+      ["root", null],
+      ["child", "root"],
+    ],
+  );
+  assert.equal(getDisk().playlists[0].folder, "child");
+  assert.equal(game.playlists.get("list").toObject().name, "Music");
+  assert.equal((await readArchive()).entries.length, 3);
+});
+
+test("a local playlist ID collision preserves both copies and another world's data", async () => {
+  const { files, playlists, setDisk, getDisk } = setup();
+  const local = new foundry.documents.Playlist({ _id: "same", name: "Local", folder: null, sounds: [] });
+  playlists.set(local.id, local);
+  setDisk({
+    revision: 0,
+    folders: [],
+    playlists: [{ _id: "same", name: "Global", folder: null, sounds: [] }],
+    playbackByWorld: { "world-b": { same: { playing: true, sounds: {} } } },
+  });
+  const otherWorldBefore = structuredClone(files.get("rn-global-playlists/playback/world-b.json"));
+  const globalBefore = structuredClone(files.get("rn-global-playlists/playlists/same.json"));
+
+  await reloadGlobalPlaylists();
+
+  assert.equal(playlists.get("same"), local);
+  assert.equal(state.blockedPlaylists.get("same").name, "Global");
+  assert.equal(state.conflicts.length, 1);
+  assert.equal(serialize()[0].name, "Global");
+  const scene = {
+    _source: { playlist: "same", playlistSound: null },
+    async update(changes) {
+      Object.assign(this._source, changes);
+    },
+  };
+  game.scenes.push(scene);
+  await game.settings.set("rn-playlist-companion", "hiddenLocal", { folders: [], playlists: ["same"] });
+
+  await resolveLocalConflict("playlist", "same");
+
+  assert.equal(playlists.get("same").toObject().name, "Global");
+  const localCopy = [...playlists.values()].find((item) => item.toObject().name === "Local");
+  assert.ok(localCopy);
+  assert.notEqual(localCopy.id, "same");
+  assert.equal(scene._source.playlist, localCopy.id);
+  assert.deepEqual(game.settings.get("rn-playlist-companion", "hiddenLocal").playlists, [localCopy.id]);
+  assert.deepEqual(
+    getDisk().playlists.map((item) => item.name),
+    ["Global"],
+  );
+  assert.deepEqual(files.get("rn-global-playlists/playback/world-b.json"), otherWorldBefore);
+  assert.deepEqual(files.get("rn-global-playlists/playlists/same.json"), globalBefore);
+});
+
+test("explicitly globalizing a conflicting local playlist keeps the existing global and moves the new local ID", async () => {
+  const { playlists, setDisk, getDisk } = setup();
+  const local = new foundry.documents.Playlist({ _id: "same", name: "Local", folder: null, sounds: [] });
+  playlists.set(local.id, local);
+  setDisk({
+    revision: 0,
+    folders: [],
+    playlists: [{ _id: "same", name: "Existing global", folder: null, sounds: [] }],
+    playbackByWorld: {},
+  });
+  foundry.utils.escapeHTML = (value) => value;
+  foundry.applications.api = { DialogV2: { confirm: async () => true } };
+  await reloadGlobalPlaylists();
+
+  const moved = await moveBranchToGlobal(local, null, false);
+
+  assert.equal(moved.toObject().name, "Local");
+  assert.notEqual(moved.id, "same");
+  assert.deepEqual(
+    getDisk().playlists.map((item) => item.name),
+    ["Existing global", "Local"],
+  );
+  assert.equal(state.conflicts.length, 0);
+});
+
+test("canceling conflict resolution leaves a local-to-global move untouched", async () => {
+  const { playlists, setDisk, getDisk } = setup();
+  const local = new foundry.documents.Playlist({ _id: "same", name: "Local", folder: null, sounds: [] });
+  playlists.set(local.id, local);
+  setDisk({
+    revision: 0,
+    folders: [],
+    playlists: [{ _id: "same", name: "Existing global", folder: null, sounds: [] }],
+    playbackByWorld: {},
+  });
+  foundry.utils.escapeHTML = (value) => value;
+  foundry.applications.api = { DialogV2: { confirm: async () => false } };
+  await reloadGlobalPlaylists();
+
+  assert.equal(await moveBranchToGlobal(local, null, false), null);
+  assert.equal(game.playlists.get("same"), local);
+  assert.deepEqual(
+    getDisk().playlists.map((item) => item.name),
+    ["Existing global"],
+  );
+});
+
+test("the move confirmation happens before an ID conflict can change the local item", async () => {
+  const { playlists, setDisk, getDisk } = setup();
+  const local = new foundry.documents.Playlist({ _id: "same", name: "Local", folder: null, sounds: [] });
+  playlists.set(local.id, local);
+  setDisk({
+    revision: 0,
+    folders: [],
+    playlists: [{ _id: "same", name: "Existing global", folder: null, sounds: [] }],
+    playbackByWorld: {},
+  });
+  foundry.utils.escapeHTML = (value) => value;
+  let prompts = 0;
+  foundry.applications.api = { DialogV2: { confirm: async () => ++prompts === 1 } };
+  await reloadGlobalPlaylists();
+
+  assert.equal(await moveBranchToGlobal(local), null);
+  assert.equal(prompts, 2);
+  assert.equal(game.playlists.get("same"), local);
+  assert.deepEqual(
+    getDisk().playlists.map((item) => item.name),
+    ["Existing global"],
+  );
+});
+
+test("a local folder ID collision holds back its global branch without losing stored data", async () => {
+  const { folders, setDisk, getDisk } = setup();
+  const local = new foundry.documents.Folder({ _id: "same", name: "Local folder", type: "Playlist", folder: null });
+  folders.set(local.id, local);
+  setDisk({
+    revision: 0,
+    folders: [{ _id: "same", name: "Global folder", type: "Playlist", folder: null }],
+    playlists: [{ _id: "child", name: "Global child", folder: "same", sounds: [] }],
+    playbackByWorld: {},
+  });
+
+  await reloadGlobalPlaylists();
+
+  assert.equal(folders.get("same"), local);
+  assert.equal(state.blockedFolders.get("same").name, "Global folder");
+  assert.equal(state.blockedPlaylists.get("child").name, "Global child");
+  assert.deepEqual(
+    serialize().map((item) => item._id),
+    ["child"],
+  );
+
+  foundry.utils.escapeHTML = (value) => value;
+  foundry.applications.api = { DialogV2: { confirm: async () => false } };
+  assert.equal(await moveBranchToGlobal(local, null, false), null);
+  assert.deepEqual(
+    getDisk().folders.map((item) => item.name),
+    ["Global folder"],
+  );
+
+  await resolveLocalConflict("folder", "same");
+
+  assert.equal(folders.get("same").toObject().name, "Global folder");
+  assert.equal(game.playlists.get("child").toObject().name, "Global child");
+  assert.ok([...folders.values()].some((item) => item.toObject().name === "Local folder"));
+});
+
+test("globalizing a conflicting local folder continues with its new ID and child", async () => {
+  const { folders, playlists, events, setDisk, getDisk } = setup();
+  const local = addLocalFolder(folders, events, "same");
+  addLocalPlaylist(playlists, events, "local-child", "same");
+  setDisk({
+    revision: 0,
+    folders: [{ _id: "same", name: "Existing global", type: "Playlist", folder: null }],
+    playlists: [],
+    playbackByWorld: {},
+  });
+  foundry.utils.escapeHTML = (value) => value;
+  foundry.applications.api = { DialogV2: { confirm: async () => true } };
+  await reloadGlobalPlaylists();
+
+  const moved = await moveBranchToGlobal(local, null, false);
+
+  assert.notEqual(moved.id, "same");
+  assert.equal(getDisk().folders.length, 2);
+  assert.equal(getDisk().playlists.find((item) => item._id === "local-child").folder, moved.id);
+  assert.equal(state.conflicts.length, 0);
+});
+
+test("persist refuses duplicate global folder IDs before writing the index", async () => {
+  const { events, getDisk } = setup();
+  const folder = { _id: "same", name: "Folder", type: "Playlist", folder: null };
+
+  await assert.rejects(persist([], null, [folder, { ...folder, name: "Other" }]), /same ID/);
+  assert.deepEqual(getDisk().folders, []);
+  assert.deepEqual(events, []);
+});
+
 test("failed write during global-to-local move rolls back local copies", async () => {
   const { folders, playlists, events, getDisk, setDisk } = setup({ uploadFails: true });
   const folderData = { _id: "global-folder", name: "Global", type: "Playlist", folder: null };
@@ -475,7 +1141,7 @@ test("failed write during global-to-local move rolls back local copies", async (
   assert.deepEqual(events, [
     "create:global-folder",
     "create:global-list",
-    "upload:rn-global-playlists/index.json",
+    "upload:rn-global-playlists/archive.json",
     "rollback:global-list",
     "rollback:global-folder",
   ]);
@@ -516,6 +1182,22 @@ test("hidden state stays in the current world when a folder becomes global or lo
     folders: ["hidden-folder"],
     playlists: ["hidden-list"],
   });
+});
+
+test("moving a global branch to a local folder archives its original global folder links", async () => {
+  const { folders, playlists, events, getDisk } = setup();
+  const globalRoot = addLocalFolder(folders, events, "global-root");
+  addLocalPlaylist(playlists, events, "global-list", globalRoot.id);
+  const global = await moveBranchToGlobal(globalRoot, null, false);
+  addLocalFolder(folders, events, "local-target");
+
+  await moveBranchToLocal(global, "local-target", false);
+
+  assert.equal(folders.get("global-root").toObject().folder, "local-target");
+  const archive = await readArchive();
+  assert.equal(archive.entries.find((item) => item.type === "folder").data.folder, null);
+  assert.equal(archive.entries.find((item) => item.type === "playlist").data.folder, "global-root");
+  assert.deepEqual(getDisk().playlists, []);
 });
 
 test("a hidden folder reveals only the branch containing a playing playlist", () => {
@@ -566,7 +1248,7 @@ test("reloads arriving during initial loading share one follow-up read", async (
   const { setDisk } = setup();
   state.ready = false;
   const held = holdFirstIndexRead();
-  const first = reloadGlobalPlaylists({ create: true });
+  const first = reloadGlobalPlaylists();
   await held.started;
   setDisk({
     revision: 1,

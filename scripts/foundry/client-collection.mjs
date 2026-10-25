@@ -10,7 +10,7 @@ export function refresh() {
 export function installFolder(data) {
   const id = data._id;
   const old = game.folders.get(id);
-  if (old && !state.folders.has(id)) throw error("FolderCollision", { id });
+  if (old && old !== state.folders.get(id)) throw error("FolderCollision", { id });
   const folder = new foundry.documents.Folder(data);
   game.folders.set(id, folder);
   state.folders.set(id, folder);
@@ -70,7 +70,7 @@ export function installInClient(data) {
   const id = data._id;
   stopPreviewForPlayback(id, data.sounds);
   const old = game.playlists.get(id);
-  if (old && !state.playlists.has(id)) {
+  if (old && old !== state.playlists.get(id)) {
     console.error(`[${MODULE_ID}] ID collision with a world playlist: ${id}`);
     return false;
   }

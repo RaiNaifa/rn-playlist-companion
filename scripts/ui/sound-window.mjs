@@ -97,6 +97,7 @@ export function rangesForViewport(lists, viewportTop, viewportBottom, budget = D
 }
 
 function viewportCovered(lists, top, bottom) {
+  // Keep a guard band before rebuilding rows so small scrolls do not repeatedly shift the DOM.
   return lists.every((list) => {
     const visible = visibleInterval(list, top, bottom);
     if (!visible) return true;

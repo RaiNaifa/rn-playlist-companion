@@ -45,6 +45,7 @@ export function filterHiddenTree(
   { showHidden = false, hiddenFolders, hiddenPlaylists, playingIds },
   ancestorHidden = false,
 ) {
+  // Keep playing sounds reachable even when their playlist sits inside a hidden folder branch.
   const folderHidden = ancestorHidden || (node.folder && hiddenFolders.has(node.folder.id));
   const entries = node.entries.filter((entry) => {
     if (showHidden) return true;

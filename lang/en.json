@@ -1,16 +1,116 @@
 {
   "RNPLAYCOMP": {
     "Settings": {
+      "GlobalArchive": {
+        "Hint": "Inspect and restore deleted or replaced global playlists and folders."
+      },
+      "ConflictMenu": {
+        "Hint": "Check local and global playlists or folders for matching IDs and keep both items if needed."
+      },
+      "ConflictResolution": {
+        "Name": "ID conflict resolution",
+        "Hint": "Keep local: show the local item in this world and hide the global item with the same ID.\nKeep both: give the local item a new ID, update its links, then show the global item.\nAlways ask: let the GM choose on entering the world.\nClosing the dialog temporarily keeps the local item.",
+        "Local": "Keep local",
+        "Both": "Keep both",
+        "Ask": "Always ask"
+      },
       "DuckStrength": {
         "Name": "Audio ducking during preview",
-        "Hint": "0% leaves other sounds unchanged; 100% silences music, environment, and interface sounds during preview."
+        "Hint": "0% leaves other sounds unchanged. 100% silences music, environment, and interface sounds during preview."
       },
       "SoundRowBudget": {
         "Name": "Minimum displayed sounds",
         "Hint": "The number of sound rows kept in the list across all expanded playlists. This increases automatically when a taller window needs more rows. A lower value reduces interface load but may update rows more often while scrolling. A higher value keeps more nearby rows ready but increases interface load."
       }
     },
+    "Archive": {
+      "Title": "Global playlist archive",
+      "ReadOnlyUntilRepaired": "Storage did not load completely.\nThe archive is read-only until the data errors are resolved.",
+      "Intro": "Select an archived snapshot to inspect or restore.",
+      "Type": {
+        "playlist": "Playlist",
+        "folder": "Folder"
+      },
+      "Empty": "The archive is empty.",
+      "Open": "Open",
+      "Close": "Close",
+      "Details": "Archived version",
+      "Saved": "Archived version",
+      "Current": "Active version",
+      "Status": "Comparison",
+      "ArchivedSounds": "Sounds in the archived playlist",
+      "LegendSame": "same",
+      "LegendMissing": "present in one version only",
+      "LegendDifferent": "different (hover for details)",
+      "Field": "Field",
+      "Fields": {
+        "name": "Name",
+        "path": "Audio file",
+        "volume": "Volume",
+        "repeat": "Repeat",
+        "fade": "Fade duration",
+        "channel": "Audio channel",
+        "sort": "Order",
+        "description": "Description"
+      },
+      "Yes": "Yes",
+      "No": "No",
+      "ChangedContent": "Changed",
+      "NoSounds": "No sounds in this playlist.",
+      "Same": "The sounds match.",
+      "Missing": "This sound exists in one version only.",
+      "RecreatedPlaylistName": "Recovered playlist {id}",
+      "SceneRelinkResultTitle": "Some scene links were not updated",
+      "SceneRelinkPartial": "The global item was restored. Links could not be updated in {count} scene(s):",
+      "BranchCount": "This archived branch contains {folders} folder(s) and {playlists} playlist(s).",
+      "SnapshotKept": "Restoring an item keeps this archived snapshot until you remove it manually.",
+      "RestoredAs": "Previously restored as {id}.",
+      "RelinkScenes": "Update {count} scene link(s) in this world to the restored playlist (if its ID changes)",
+      "RestoreSeparate": "Restore separately",
+      "RestoreGlobal": "Restore globally",
+      "ReplaceCurrent": "Replace current",
+      "Forget": "Remove from archive",
+      "Back": "Back",
+      "ConfirmTitle": "Restore archived item",
+      "Confirm": "Restore",
+      "SeparateWarning": "Create a separate global item from this snapshot? The archived snapshot will remain available.",
+      "RestoreWarning": "Restore this item as global? The archived snapshot will remain available.",
+      "ReplaceWarning": "Replace the current global item in all worlds with this snapshot?\nThe current version will be archived first.",
+      "ForgetWarning": "Remove this snapshot from archive.json?\nIt will no longer be available for restoration through the module.",
+      "ForgetBranchWarning": "Remove this folder and its archived branch from archive.json?\nThe branch will no longer be available for restoration through the module.",
+      "ConflictTitle": "Global and local ID conflict",
+      "CompareConflicts": "Compare versions",
+      "LocalShort": "Local",
+      "GlobalShort": "Global",
+      "MoveConflictIntro": "Local item “{name}” has the same ID as a global item.",
+      "MoveConflictGlobal": "Global item: “{name}”.",
+      "MoveConflictEffect": "To continue the move, the local item will receive a new ID and its links in this world will be updated.\nIt will then become a separate global item.",
+      "KeepBothAndMove": "Keep both and continue",
+      "NoConflicts": "No local and global playlist or folder IDs conflict in this world.",
+      "ConflictIntro": "A local item and a global item have the same ID.\nThe local item remains available here. The global item remains saved and available in other worlds.",
+      "Local": "Local in this world",
+      "Global": "Global in Data/rn-global-playlists/",
+      "ConflictKeep": "To keep both, the local item receives a new ID and its links in this world are updated.",
+      "KeepBoth": "Keep both",
+      "KeepLocal": "Keep local for now",
+      "Reason": {
+        "deleted": "Deleted",
+        "moved-to-local": "Moved to local",
+        "replaced": "Replaced by an archived version"
+      }
+    },
+    "Notifications": {
+      "LostArchive": "The global playlist archive file was missing. A new empty archive was created. Earlier snapshots are unavailable.",
+      "RecreatedFile": "Global data file {path} was missing. The module recreated it. Its previous contents are unavailable.",
+      "RebuiltIndex": "index.json was missing. The module rebuilt it and included {count} playlist files. Files left by previously deleted playlists may also appear. Review the list. If global folders existed, their structure was lost. Playlists were moved to the root.",
+      "LocalPriority": "ID conflicts found ({count}). Local items remain visible in this world. Global items with the same IDs are hidden.",
+      "AutoResolved": "ID conflicts resolved automatically ({count}): local items received new IDs.",
+      "Unresolved": "An ID conflict remains unresolved. The local item is available. Reopen the choice in module settings."
+    },
     "UI": {
+      "OpenArchive": "Global archive",
+      "ResolveConflicts": "Resolve conflicts manually",
+      "ResolveConflictsButton": "Resolve conflicts",
       "MakeGlobal": "Make global",
       "MakeLocal": "Make local here",
       "GlobalHint": "Global in all worlds",
@@ -37,6 +137,11 @@
       "ToLocal": "to this world only"
     },
     "Errors": {
+      "ArchiveMissing": "Archived item was not found.",
+      "ArchiveReplaceMissing": "There is no current global item to replace.",
+      "ArchiveConflictMissing": "This ID conflict no longer exists.",
+      "ArchiveInstallCollision": "The restored playlist {id} could not be loaded because another item now uses its ID. Reload the world to resolve the conflict.",
+      "UnresolvedConflict": "Resolve the local and global ID conflicts in this folder branch first.",
       "SoundNotFound": "Sound {id} was not found.",
       "GlobalPlaylistNotFound": "Global playlist not found.",
       "GMOnlyMove": "Only a GM can move playlists.",
@@ -49,12 +154,13 @@
       "TargetGlobal": "The destination folder is global.",
       "MakeLocalFailed": "Could not make this item local: {reason}",
       "StorageUnavailable": "Global playlist storage directory is unavailable. Join as GM to initialize it.",
-      "MissingIndex": "Global playlist storage index.json is missing. Restore it from a backup.",
+      "MissingPlaylist": "The active global playlist {id} is missing its file. The module will create a new empty file when a GM next enters the world.",
+      "MissingArchive": "Global playlist archive.json is missing. The module will create a new empty archive when a GM next enters the world.",
       "ReadHTTP": "Cannot read global playlist storage file (HTTP {status}).",
       "UnsupportedFile": "Global playlist storage file has an unsupported format.",
       "UnsupportedFolders": "Global folder data has an unsupported format.",
       "PrivateFailed": "Could not mark {directory} private in the File Picker.",
-      "UploadFailed": "Foundry did not overwrite {path}; returned {result}.",
+      "UploadFailed": "Foundry did not overwrite {path}. Returned: {result}.",
       "GMOnlyEdit": "Only a GM can edit global playlists.",
       "Stale": "Another GM changed global data. Reload this world before editing.",
       "RevisionMismatch": "Global playlist data changed in another GM client. Reload before editing.",

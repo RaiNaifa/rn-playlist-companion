@@ -171,6 +171,7 @@ export async function togglePreview(nextSound) {
     return;
   }
   stopPreview();
+  // Audio unlock and loading can finish after another preview is selected. Only the latest request may play.
   const request = generation;
   previewDocument = nextSound;
   previewUuid = nextSound.uuid;

@@ -1,5 +1,5 @@
 import { nextPlayback, playbackData, storedData, withPlayback } from "../audio/playback-state.mjs";
-import { error, isGlobal, isGlobalFolder, publish, state, t } from "../core/context.mjs";
+import { error, isGlobal, isGlobalFolder, publish, reportError, state, t } from "../core/context.mjs";
 import {
   installFolder,
   installInClient,
@@ -8,6 +8,7 @@ import {
   removeFromClient,
 } from "../foundry/client-collection.mjs";
 import { persist, readStore, serialize, serializeFolders } from "../storage/global-store.mjs";
+import { archiveEntries } from "./archive.mjs";
 
 export function applyChanges(data, changes) {
   const next = foundry.utils.deepClone(data);
@@ -67,6 +68,13 @@ export async function removeGlobal(id) {
   await persist(
     serialize().filter((item) => item._id !== id),
     playback,
+    null,
+    {
+      add: archiveEntries({
+        playlists: [state.playlists.get(id).toObject()],
+        reason: "deleted",
+      }),
+    },
   );
   removeFromClient(id);
   publish("remove", { id });
@@ -95,6 +103,24 @@ export function folderBranch(id, global) {
   };
 }
 
+export function hasBlockedBranch(id) {
+  const folders = new Set([id]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const folder of serializeFolders()) {
+      if (folder.folder && folders.has(folder.folder) && !folders.has(folder._id)) {
+        folders.add(folder._id);
+        changed = true;
+      }
+    }
+  }
+  return (
+    [...state.blockedFolders.keys()].some((folderId) => folders.has(folderId)) ||
+    [...state.blockedPlaylists.values()].some((playlist) => folders.has(playlist.folder))
+  );
+}
+
 export function describeMove(folder, branch, global) {
   return t(`UI.${folder ? "MoveFolderConfirm" : "MovePlaylistConfirm"}`, {
     name: folder?.name ?? branch.playlists[0].name,
@@ -107,25 +133,44 @@ export function describeMove(folder, branch, global) {
 export async function confirmMove(folder, branch, global) {
   return foundry.applications.api.DialogV2.confirm({
     window: { title: t(`UI.${global ? "MoveGlobal" : "MoveLocal"}`) },
-    content: `<p>${foundry.utils.escapeHTML(describeMove(folder, branch, global))}</p>`,
+    content: `<p class="rn-confirm-message">${foundry.utils.escapeHTML(describeMove(folder, branch, global))}</p>`,
     yes: { label: t("UI.Move") },
   });
 }
 
 export async function moveBranchToGlobal(document, targetFolder = null, ask = true) {
   if (!state.ready || !game.user.isGM) throw error("GMOnlyMove");
-  const folder = document.documentName === "Folder" ? document : null;
+  let moving = document;
+  let folder = moving.documentName === "Folder" ? moving : null;
   if (folder && folder.type !== "Playlist") throw error("NotPlaylistFolder");
-  if (isGlobal(document) || isGlobalFolder(folder)) throw error("AlreadyGlobal");
+  if (isGlobal(moving) || isGlobalFolder(folder)) throw error("AlreadyGlobal");
   if (targetFolder && !isGlobalFolder(game.folders.get(targetFolder))) throw error("TargetNotGlobal");
-  const branch = folder ? folderBranch(folder.id, false) : { folders: [], playlists: [document] };
+  let branch = folder ? folderBranch(folder.id, false) : { folders: [], playlists: [moving] };
   if (ask && !(await confirmMove(folder, branch, true))) return null;
+  while (true) {
+    branch = folder ? folderBranch(folder.id, false) : { folders: [], playlists: [moving] };
+    const conflict = state.conflicts.find((item) =>
+      item.type === "folder"
+        ? branch.folders.some((entry) => entry.id === item.id)
+        : branch.playlists.some((entry) => entry.id === item.id),
+    );
+    if (!conflict) break;
+    const { resolveConflictForMove } = await import("./conflicts.mjs");
+    const resolved = await resolveConflictForMove(conflict);
+    if (!resolved) return null;
+    if (moving.id === conflict.id && moving.documentName.toLowerCase() === conflict.type) moving = resolved;
+    folder = moving.documentName === "Folder" ? moving : null;
+  }
+  if (
+    branch.folders.some((item) => state.folders.has(item.id) || state.blockedFolders.has(item.id)) ||
+    branch.playlists.some((item) => state.playlists.has(item.id) || state.blockedPlaylists.has(item.id))
+  ) {
+    throw error("DuplicateID");
+  }
   const folderData = branch.folders.map((f) => f.toObject());
   const playlistData = branch.playlists.map((p) => p.toObject());
   const root = folder ? folderData.find((f) => f._id === folder.id) : playlistData[0];
   root.folder = targetFolder;
-  const ids = new Set([...folderData, ...playlistData].map((d) => d._id));
-  if ([...state.folders.keys(), ...state.playlists.keys()].some((id) => ids.has(id))) throw error("DuplicateID");
   const playback = foundry.utils.deepClone(state.playbackByWorld);
   playback[game.world.id] ??= {};
   const world = playback[game.world.id];
@@ -141,7 +186,7 @@ export async function moveBranchToGlobal(document, targetFolder = null, ask = tr
   for (const data of folderData) installFolder(data);
   for (const data of playlistData) installInClient(data);
   publish("reload");
-  return folder ? state.folders.get(folder.id) : state.playlists.get(document.id);
+  return folder ? state.folders.get(folder.id) : state.playlists.get(moving.id);
 }
 
 export async function moveBranchToLocal(document, targetFolder = null, ask = true) {
@@ -150,6 +195,7 @@ export async function moveBranchToLocal(document, targetFolder = null, ask = tru
   if (!(folder ? isGlobalFolder(folder) : isGlobal(document))) throw error("NotGlobal");
   if (targetFolder && isGlobalFolder(game.folders.get(targetFolder))) throw error("TargetGlobal");
   const branch = folder ? folderBranch(folder.id, true) : { folders: [], playlists: [document] };
+  if (folder && hasBlockedBranch(folder.id)) throw error("UnresolvedConflict");
   if (ask && !(await confirmMove(folder, branch, false))) return null;
   const folderData = branch.folders.map((f) => f.toObject());
   const playlistData = branch.playlists.map((p) => p.toObject());
@@ -170,6 +216,14 @@ export async function moveBranchToLocal(document, targetFolder = null, ask = tru
       serialize().filter((p) => !playlistIds.has(p._id)),
       playback,
       serializeFolders().filter((f) => !folderIds.has(f._id)),
+      {
+        add: archiveEntries({
+          playlists: branch.playlists.map((item) => item.toObject()),
+          folders: branch.folders.map((item) => item.toObject()),
+          reason: "moved-to-local",
+          world: game.world.id,
+        }),
+      },
     );
   } catch (e) {
     for (const item of made.reverse()) await item.delete().catch(console.error);
@@ -183,7 +237,12 @@ export async function moveBranchToLocal(document, targetFolder = null, ask = tru
 
 let reloadTask;
 let reloadPending = false;
-let createOnReload = false;
+const reloadListeners = new Set();
+
+export function onGlobalDataApplied(listener) {
+  reloadListeners.add(listener);
+  return () => reloadListeners.delete(listener);
+}
 
 // A socket update received during a file read makes that read obsolete.
 export function invalidateGlobalReload() {
@@ -198,11 +257,52 @@ function applyGlobalData(disk) {
     for (const id of [...state.playlists.keys()]) if (!playlistIds.has(id)) removeFromClient(id);
     for (const id of [...state.folders.keys()]) if (!folderIds.has(id)) removeFolder(id);
     state.revision = disk.revision;
+    state.playlistOrder = disk.playlists.map((playlist) => playlist._id);
+    state.folderOrder = disk.folders.map((folder) => folder._id);
     state.playbackByWorld = disk.playbackByWorld ?? {};
-    for (const folder of disk.folders) installFolder(folder);
+    state.blockedPlaylists = new Map();
+    state.blockedFolders = new Map();
+    state.conflicts = [];
+    const blockedFolderIds = new Set();
+    // A folder whose ID belongs to a local folder cannot be installed, nor can its global descendants.
+    for (const folder of disk.folders) {
+      const local = game.folders.get(folder._id);
+      if (local && local !== state.folders.get(folder._id)) {
+        blockedFolderIds.add(folder._id);
+        state.conflicts.push({ type: "folder", id: folder._id, local: local.name, global: folder.name });
+      }
+    }
+    let expanded = true;
+    while (expanded) {
+      expanded = false;
+      for (const folder of disk.folders) {
+        if (folder.folder && blockedFolderIds.has(folder.folder) && !blockedFolderIds.has(folder._id)) {
+          blockedFolderIds.add(folder._id);
+          expanded = true;
+        }
+      }
+    }
+    for (const folder of disk.folders) {
+      if (blockedFolderIds.has(folder._id)) {
+        if (state.folders.has(folder._id)) removeFolder(folder._id);
+        state.blockedFolders.set(folder._id, folder);
+      } else installFolder(folder);
+    }
     const worldPlayback = state.playbackByWorld[game.world.id] ?? {};
     for (const playlist of disk.playlists) {
       const next = withPlayback(playlist, worldPlayback[playlist._id]);
+      const local = game.playlists.get(playlist._id);
+      if (local && local !== state.playlists.get(playlist._id)) {
+        state.playlists.delete(playlist._id);
+        state.blockedPlaylists.set(playlist._id, playlist);
+        state.conflicts.push({ type: "playlist", id: playlist._id, local: local.name, global: playlist.name });
+        continue;
+      }
+      if (playlist.folder && state.blockedFolders.has(playlist.folder)) {
+        if (state.playlists.has(playlist._id)) removeFromClient(playlist._id);
+        state.blockedPlaylists.set(playlist._id, playlist);
+        continue;
+      }
       const current = state.playlists.get(playlist._id);
       if (current && JSON.stringify(current.toObject()) === JSON.stringify(next)) continue;
       installInClient(next);
@@ -215,8 +315,7 @@ function applyGlobalData(disk) {
   }
 }
 
-export function reloadGlobalPlaylists({ create = false } = {}) {
-  createOnReload ||= create;
+export function reloadGlobalPlaylists() {
   reloadPending = true;
   if (reloadTask) return reloadTask;
   reloadTask = (async () => {
@@ -224,7 +323,7 @@ export function reloadGlobalPlaylists({ create = false } = {}) {
       reloadPending = false;
       let disk;
       try {
-        disk = await readStore({ create: createOnReload });
+        disk = await readStore();
       } catch (error) {
         if (reloadPending) continue;
         throw error;
@@ -236,8 +335,8 @@ export function reloadGlobalPlaylists({ create = false } = {}) {
     }
   })().finally(() => {
     reloadTask = null;
-    createOnReload = false;
-    if (reloadPending) reloadGlobalPlaylists().catch(console.error);
+    if (reloadPending) reloadGlobalPlaylists().catch(reportError);
+    else for (const listener of reloadListeners) listener();
   });
   return reloadTask;
 }

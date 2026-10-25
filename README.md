@@ -12,8 +12,9 @@ Enhance Foundry VTT’s built-in playlists and improve their performance. Previe
 - Playlists or an entire folder branch can be changed between global and local as needed.
 - Global playlist data is stored in `Data/rn-global-playlists/`, outside the module folder. Audio files stay in their original locations.
 - The data folder is hidden from players in Foundry’s File Browser by default.
-- ⚠️ World backups do not include global playlists. Back up `Data/rn-global-playlists/` separately.
-- Support for backing up global playlists will be added later.
+- Global playlists have a built-in archive for recovering deleted or replaced versions.
+- ID conflicts between global and local items can be resolved automatically or by the GM.
+- ⚠️ World backups do not include global playlists. To view and restore saved versions of global playlists, open Global Playlist Archive in the module settings.
 
 ### Playlists Visibility
 
@@ -32,7 +33,7 @@ Enhance Foundry VTT’s built-in playlists and improve their performance. Previe
 ### Playlists Performance
 
 - Collapsed playlists do not render their sound rows, helping Foundry’s interface stay responsive when the playlist sidebar is open, even with many sounds.
-- Expanded playlists share one row budget across the visible area; sounds outside it stay available through scrolling and search.
+- Expanded playlists share one row budget across the visible area. Sounds outside it stay available through scrolling and search.
 - Known issue: Minor stutters may occasionally occur when scrolling through a large number of sounds.
 
 ## Minor Improvements

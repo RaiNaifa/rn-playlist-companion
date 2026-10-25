@@ -1,180 +1,17 @@
-import {
-  activePreview,
-  duckMusic,
-  onPreviewChange,
-  previewPlaylistSound,
-  previewSound,
-  previewVolume,
-  togglePreview,
-  togglePreviewPause,
-} from "../audio/preview.mjs";
-import { error, isGlobal, isGlobalFolder, state, t } from "../core/context.mjs";
+import { duckMusic } from "../audio/preview.mjs";
+import { error, isGlobal, isGlobalFolder, reportError, state, t } from "../core/context.mjs";
 import { folderBranch, moveBranchToGlobal, moveBranchToLocal, removeGlobal } from "../library/global-library.mjs";
 import { filterHiddenTree, hiddenIds, isHidden, setHidden } from "../library/visibility.mjs";
+import {
+  decoratePreviewVolume,
+  decorateSounds,
+  registerPreviewWidgetUpdates,
+  syncPreviewWidget,
+} from "./preview-widget.mjs";
 import { decorateSoundNames } from "./sound-marquee.mjs";
 import { mountSoundWindows, patchSoundWindows, searchActive } from "./sound-window.mjs";
 
 const uiState = { open: false, editing: false, showHidden: false };
-let previewTimer;
-
-function updatePreviewTime() {
-  const sound = previewSound();
-  const format = foundry.applications.sidebar.tabs.PlaylistDirectory.formatTimestamp;
-  for (const row of document.querySelectorAll(".playlists-sidebar .rn-preview-playing")) {
-    row.querySelector(".current").textContent = format(sound?.currentTime ?? 0);
-    row.querySelector(".duration").textContent = format(sound?.duration ?? 0);
-  }
-}
-
-function createPreviewVolumeSlider() {
-  const slider = foundry.applications.elements.HTMLRangePickerElement.create({
-    min: 0,
-    max: 1,
-    step: 0.05,
-    value: foundry.audio.AudioHelper.volumeToInput(previewVolume()),
-  });
-  slider.classList.add("rn-preview-slider");
-  slider.setAttribute("aria-label", t("UI.PreviewVolume"));
-  const { volumeToPercentage } = foundry.audio.AudioHelper;
-  slider.dataset.tooltip = volumeToPercentage(slider.value);
-  slider.ariaValueText = volumeToPercentage(slider.value, { label: true });
-  slider.addEventListener("change", () => {
-    game.settings.set("rn-playlist-companion", "previewVolume", foundry.audio.AudioHelper.inputToVolume(slider.value));
-    const tooltip = volumeToPercentage(slider.value);
-    slider.dataset.tooltipText = tooltip;
-    slider.ariaValueText = volumeToPercentage(slider.value, { label: true });
-    game.tooltip.activate(slider, { text: tooltip });
-    for (const other of document.querySelectorAll(".playlists-sidebar .rn-preview-slider")) {
-      if (other !== slider) {
-        other.value = slider.value;
-        other.dataset.tooltipText = tooltip;
-        other.ariaValueText = slider.ariaValueText;
-      }
-    }
-  });
-  return slider;
-}
-
-function addPreviewButton(controls, playlistSound) {
-  if (controls.querySelector(".rn-preview")) return;
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "inline-control sound-control icon fa-solid fa-headphones rn-preview";
-  button.dataset.soundUuid = playlistSound.uuid;
-  button.setAttribute("data-tooltip", "");
-  button.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    togglePreview(playlistSound);
-  });
-  controls.append(button);
-}
-
-function syncPreviewWidget(element) {
-  const widget = element.querySelector(".currently-playing");
-  const list = widget?.querySelector(".playlist-sounds");
-  if (!list) return;
-  list.querySelector(".rn-preview-playing")?.remove();
-  const playlistSound = previewPlaylistSound();
-  if (!playlistSound) {
-    widget.hidden = !list.querySelector(".sound");
-    return;
-  }
-  const nativeRow = [...list.querySelectorAll(".sound")].find((row) => row.dataset.soundUuid === playlistSound.uuid);
-  if (nativeRow) {
-    widget.hidden = false;
-    return;
-  }
-  const row = document.createElement("li");
-  row.className = "sound rn-preview-playing";
-  row.dataset.playlistId = playlistSound.parent.id;
-  row.dataset.soundId = playlistSound.id;
-  row.dataset.soundUuid = playlistSound.uuid;
-  const header = document.createElement("header");
-  const icon = document.createElement("i");
-  icon.className = "fa-thin fa-music";
-  icon.setAttribute("inert", "");
-  const name = document.createElement("label");
-  name.className = "ellipsis";
-  name.textContent = playlistSound.name;
-  const controls = document.createElement("div");
-  controls.className = "sound-controls flexrow";
-  if (playlistSound.isOwner) {
-    const repeat = document.createElement("button");
-    repeat.type = "button";
-    repeat.className = `inline-control sound-control icon fa-solid fa-arrows-rotate${playlistSound.repeat ? "" : " inactive"}`;
-    repeat.dataset.action = "soundRepeat";
-    repeat.setAttribute("data-tooltip", "");
-    repeat.setAttribute("aria-label", game.i18n.localize("PLAYLIST.SoundLoop"));
-    controls.append(repeat);
-  }
-  const play = document.createElement("button");
-  play.type = "button";
-  play.className = `inline-control sound-control icon fa-solid ${playlistSound.playing ? "fa-square" : "fa-play"}`;
-  play.dataset.action = playlistSound.playing ? "soundStop" : "soundPlay";
-  play.setAttribute("data-tooltip", "");
-  play.setAttribute(
-    "aria-label",
-    game.i18n.localize(playlistSound.playing ? "PLAYLIST.SoundStop" : "PLAYLIST.SoundPlay"),
-  );
-  if (!playlistSound.isOwner) play.disabled = true;
-  controls.append(play);
-  addPreviewButton(controls, playlistSound);
-  header.append(icon, name, controls);
-  const playback = document.createElement("div");
-  playback.className = "sound-playback flexrow";
-  playback.innerHTML =
-    '<div class="sound-timer"><span class="current">0:00</span><span class="sep"> / </span><span class="duration">0:00</span></div><i class="volume-icon fa-fw fa-solid fa-volume-low" inert></i>';
-  playback.append(createPreviewVolumeSlider());
-  const pause = document.createElement("button");
-  pause.type = "button";
-  pause.className = `inline-control sound-control pause icon fa-solid fa-${previewSound()?.playing ? "pause" : "play"}`;
-  pause.setAttribute("data-tooltip", "");
-  pause.setAttribute("aria-label", game.i18n.localize("PLAYLIST.SoundPause"));
-  pause.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    togglePreviewPause().catch(console.error);
-  });
-  playback.append(pause);
-  row.append(header, playback);
-  list.append(row);
-  widget.hidden = false;
-  updatePreviewTime();
-}
-
-function updatePreviewButtons() {
-  for (const button of document.querySelectorAll(".playlists-sidebar .rn-preview")) {
-    const active = button.dataset.soundUuid === activePreview();
-    button.classList.toggle("rn-previewing", active);
-    button.setAttribute("aria-pressed", String(active));
-    button.setAttribute("aria-label", t(`UI.${active ? "StopPreview" : "Preview"}`));
-  }
-}
-
-function decorateSounds(element) {
-  for (const row of element.querySelectorAll(
-    ".directory-list .sound[data-playlist-id][data-sound-id], .currently-playing .sound[data-playlist-id][data-sound-id]",
-  )) {
-    const controls = row.querySelector(":scope > header > .sound-controls");
-    if (!controls) continue;
-    const playlistSound = game.playlists.get(row.dataset.playlistId)?.sounds.get(row.dataset.soundId);
-    if (!playlistSound?.path) continue;
-    addPreviewButton(controls, playlistSound);
-  }
-  updatePreviewButtons();
-}
-
-function decoratePreviewVolume(element) {
-  const list = element.querySelector(".global-volume ol.plain");
-  if (!list || list.querySelector(".rn-preview-volume")) return;
-  const row = document.createElement("li");
-  row.className = "flexrow rn-preview-volume";
-  row.innerHTML = `<label>${t("UI.PreviewVolume")}</label><i class="volume-icon fa-fw fa-solid fa-headphones" inert></i>`;
-  row.append(createPreviewVolumeSlider());
-  list.append(row);
-}
-
 export function folderForDrop(target, sourceType) {
   if (!target) return null;
   if (target.matches(".folder")) {
@@ -210,7 +47,7 @@ export async function handleDrop(app, original, event) {
   if (!sourceGlobal && destGlobal) return moveBranchToGlobal(document, destination);
   if (sourceGlobal && destination && !destGlobal) return moveBranchToLocal(document, destination);
   // Dropping a global item at the root keeps it global.
-  // Foundry calculates the new sort positions; document patches save them to global storage.
+  // Foundry calculates the new sort positions. Document patches save them to global storage.
   if (sourceGlobal) return original.call(app, event);
   return original.call(app, event);
 }
@@ -232,7 +69,7 @@ export function addMoveMenu(options, kind) {
         try {
           await moveBranchToGlobal(getDocument(header));
         } catch (e) {
-          console.error(e);
+          reportError(e);
         }
       },
     },
@@ -247,7 +84,7 @@ export function addMoveMenu(options, kind) {
         try {
           await moveBranchToLocal(getDocument(header));
         } catch (e) {
-          console.error(e);
+          reportError(e);
         }
       },
     },
@@ -310,7 +147,7 @@ export function decorateDirectory(app) {
         try {
           await setHidden(item, !hidden);
         } catch (e) {
-          console.error(e);
+          reportError(e);
         }
       });
       const button = document.createElement("button");
@@ -330,7 +167,7 @@ export function decorateDirectory(app) {
           if (global) await moveBranchToLocal(item);
           else await moveBranchToGlobal(item);
         } catch (e) {
-          console.error(e);
+          reportError(e);
         }
       });
       name.before(eye, button);
@@ -381,16 +218,7 @@ export function decorateDirectory(app) {
 }
 
 export function patchDirectory() {
-  onPreviewChange(() => {
-    for (const element of document.querySelectorAll(".playlists-sidebar")) {
-      syncPreviewWidget(element);
-      decorateSounds(element);
-      decorateSoundNames(element);
-    }
-    updatePreviewButtons();
-    clearInterval(previewTimer);
-    previewTimer = activePreview() ? setInterval(updatePreviewTime, 1000) : undefined;
-  });
+  registerPreviewWidgetUpdates();
   const Directory = foundry.applications.sidebar.tabs.PlaylistDirectory;
   patchSoundWindows(Directory);
   const prepareDirectory = Directory.prototype._prepareDirectoryContext;
@@ -408,8 +236,12 @@ export function patchDirectory() {
     });
   };
   const original = Directory.prototype._onDrop;
-  Directory.prototype._onDrop = function (event) {
-    return handleDrop(this, original, event);
+  Directory.prototype._onDrop = async function (event) {
+    try {
+      return await handleDrop(this, original, event);
+    } catch (cause) {
+      reportError(cause);
+    }
   };
   Hooks.on("getPlaylistContextOptions", (_app, options) => {
     const deletion = options.find((option) => option.label === "SIDEBAR.Delete");
@@ -433,10 +265,16 @@ export function patchDirectory() {
         if (!playlist) return;
         const yes = await foundry.applications.api.DialogV2.confirm({
           window: { title: t("UI.DeleteGlobalPlaylist") },
-          content: `<p>${foundry.utils.escapeHTML(t("UI.DeleteGlobalPlaylistConfirm", { name: playlist.name }))}</p>`,
+          content: `<p class="rn-confirm-message">${foundry.utils.escapeHTML(t("UI.DeleteGlobalPlaylistConfirm", { name: playlist.name }))}</p>`,
           yes: { label: t("UI.DeleteEverywhere") },
         });
-        if (yes) await removeGlobal(playlist.id);
+        if (yes) {
+          try {
+            await removeGlobal(playlist.id);
+          } catch (cause) {
+            reportError(cause);
+          }
+        }
       },
     });
   });
@@ -463,7 +301,7 @@ export function patchDirectory() {
         try {
           await folder?.delete();
         } catch (e) {
-          console.error(e);
+          reportError(e);
         }
       },
     });

@@ -9,6 +9,11 @@ export function t(key, data) {
 export const state = {
   playlists: new Map(),
   folders: new Map(),
+  blockedPlaylists: new Map(),
+  blockedFolders: new Map(),
+  conflicts: [],
+  playlistOrder: [],
+  folderOrder: [],
   playbackByWorld: {},
   revision: 0,
   queue: Promise.resolve(),
@@ -18,9 +23,19 @@ export const state = {
 };
 
 export function error(key, data) {
-  const e = new Error(`[${MODULE_ID}] ${t(`Errors.${key}`, data)}`);
-  ui.notifications?.error(e.message);
-  return e;
+  return new Error(`[${MODULE_ID}] ${t(`Errors.${key}`, data)}`);
+}
+
+const reportedErrors = new WeakSet();
+
+export function reportError(cause) {
+  if (cause instanceof Error) {
+    if (reportedErrors.has(cause)) return cause;
+    reportedErrors.add(cause);
+  }
+  console.error(cause);
+  ui.notifications.error(cause instanceof Error ? cause.message : String(cause));
+  return cause;
 }
 
 export function isGlobal(document) {
