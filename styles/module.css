@@ -12,7 +12,8 @@
     }
   }
 
-  .sound > header > label.rn-marquee {
+  .sound > header > label.rn-marquee,
+  .playlist > .playlist-header > label.rn-marquee {
     min-width: 0;
     overflow: hidden;
     text-overflow: clip;
@@ -20,7 +21,7 @@
     .rn-marquee-strip {
       display: flex;
       width: max-content;
-      animation: rn-sound-marquee 12s linear 650ms infinite;
+      animation: rn-name-marquee 12s linear 650ms infinite;
     }
 
     .rn-marquee-copy {
@@ -305,7 +306,7 @@
   }
 }
 
-@keyframes rn-sound-marquee {
+@keyframes rn-name-marquee {
   to {
     transform: translateX(-50%);
   }

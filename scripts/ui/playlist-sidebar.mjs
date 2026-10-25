@@ -2,13 +2,13 @@ import { duckMusic } from "../audio/preview.mjs";
 import { error, isGlobal, isGlobalFolder, reportError, state, t } from "../core/context.mjs";
 import { folderBranch, moveBranchToGlobal, moveBranchToLocal, removeGlobal } from "../library/global-library.mjs";
 import { filterHiddenTree, hiddenIds, isHidden, setHidden } from "../library/visibility.mjs";
+import { decorateNames } from "./name-marquee.mjs";
 import {
   decoratePreviewVolume,
   decorateSounds,
   registerPreviewWidgetUpdates,
   syncPreviewWidget,
 } from "./preview-widget.mjs";
-import { decorateSoundNames } from "./sound-marquee.mjs";
 import { mountSoundWindows, patchSoundWindows, searchActive } from "./sound-window.mjs";
 
 const uiState = { open: false, editing: false, showHidden: false };
@@ -127,10 +127,10 @@ export function decorateDirectory(app) {
   syncPreviewWidget(element);
   mountSoundWindows(app, element, () => {
     decorateSounds(element);
-    decorateSoundNames(element);
+    decorateNames(element);
   });
   decorateSounds(element);
-  decorateSoundNames(element);
+  decorateNames(element);
   decoratePreviewVolume(element);
   for (const li of element.querySelectorAll(
     ".directory-item.playlist[data-entry-id], .directory-item.folder[data-folder-id]",

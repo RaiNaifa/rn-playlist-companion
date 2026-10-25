@@ -1,6 +1,6 @@
-export function decorateSoundNames(element) {
+export function decorateNames(element) {
   for (const label of element.querySelectorAll(
-    ".directory-list .sound > header > label.ellipsis, .currently-playing .sound > header > label.ellipsis",
+    ".directory-list .sound > header > label.ellipsis, .currently-playing .sound > header > label.ellipsis, .directory-list .playlist > .playlist-header > label.playlist-name.ellipsis",
   )) {
     if (label.dataset.rnMarqueeReady) continue;
     label.dataset.rnMarqueeReady = "true";

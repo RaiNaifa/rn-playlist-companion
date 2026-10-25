@@ -8,7 +8,7 @@ import {
   togglePreviewPause,
 } from "../audio/preview.mjs";
 import { reportError, t } from "../core/context.mjs";
-import { decorateSoundNames } from "./sound-marquee.mjs";
+import { decorateNames } from "./name-marquee.mjs";
 
 let previewTimer;
 
@@ -175,7 +175,7 @@ export function registerPreviewWidgetUpdates() {
     for (const element of document.querySelectorAll(".playlists-sidebar")) {
       syncPreviewWidget(element);
       decorateSounds(element);
-      decorateSoundNames(element);
+      decorateNames(element);
     }
     updatePreviewButtons();
     clearInterval(previewTimer);

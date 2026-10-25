@@ -38,4 +38,4 @@ Enhance Foundry VTT’s built-in playlists and improve their performance. Previe
 
 ## Minor Improvements
 
-- Long sound names scroll on hover when they do not fit in the sidebar.
+- Long sound and playlist names scroll on hover when they do not fit in the sidebar.
