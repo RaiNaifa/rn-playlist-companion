@@ -2,6 +2,7 @@ import { duckMusic } from "../audio/preview.mjs";
 import { error, isGlobal, isGlobalFolder, reportError, state, t } from "../core/context.mjs";
 import { folderBranch, moveBranchToGlobal, moveBranchToLocal, removeGlobal } from "../library/global-library.mjs";
 import { filterHiddenTree, hiddenIds, isHidden, setHidden } from "../library/visibility.mjs";
+import { decorateDescriptions, registerDescriptionTooltipUpdates } from "./description-tooltip.mjs";
 import { decorateNames } from "./name-marquee.mjs";
 import {
   decoratePreviewVolume,
@@ -128,9 +129,11 @@ export function decorateDirectory(app) {
   mountSoundWindows(app, element, () => {
     decorateSounds(element);
     decorateNames(element);
+    decorateDescriptions(element);
   });
   decorateSounds(element);
   decorateNames(element);
+  decorateDescriptions(element);
   decoratePreviewVolume(element);
   for (const li of element.querySelectorAll(
     ".directory-item.playlist[data-entry-id], .directory-item.folder[data-folder-id]",
@@ -236,6 +239,7 @@ export function decorateDirectory(app) {
 }
 
 export function patchDirectory() {
+  registerDescriptionTooltipUpdates();
   registerPreviewWidgetUpdates();
   const Directory = foundry.applications.sidebar.tabs.PlaylistDirectory;
   patchSoundWindows(Directory);

@@ -8,6 +8,7 @@ import {
   togglePreviewPause,
 } from "../audio/preview.mjs";
 import { reportError, t } from "../core/context.mjs";
+import { decorateDescriptions } from "./description-tooltip.mjs";
 import { decorateNames } from "./name-marquee.mjs";
 
 let previewTimer;
@@ -176,6 +177,7 @@ export function registerPreviewWidgetUpdates() {
       syncPreviewWidget(element);
       decorateSounds(element);
       decorateNames(element);
+      decorateDescriptions(element);
     }
     updatePreviewButtons();
     clearInterval(previewTimer);

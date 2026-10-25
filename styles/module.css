@@ -287,6 +287,27 @@
   max-width: none;
 }
 
+#tooltip.rn-description-tooltip-host {
+  max-width: min(420px, calc(100vw - 24px));
+  max-height: min(320px, 60vh);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: normal;
+
+  img {
+    display: block;
+    /* biome-ignore lint/complexity/noImportantStyles: Description images may have inline dimensions. */
+    max-width: 100% !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Description images may have inline dimensions. */
+    max-height: 120px !important;
+    object-fit: contain;
+  }
+}
+
+#tooltip.rn-description-tooltip-host.rn-description-overflow {
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 36px), transparent 100%);
+}
+
 #tooltip .rn-archive-diff {
   width: 100%;
   table-layout: fixed;

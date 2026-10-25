@@ -39,3 +39,4 @@ Enhance Foundry VTT’s built-in playlists and improve their performance. Previe
 ## Minor Improvements
 
 - Long sound and playlist names scroll on hover when they do not fit in the sidebar.
+- GMs can hover over a playlist or sound name to see its description in a compact tooltip.
