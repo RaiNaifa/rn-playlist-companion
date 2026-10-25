@@ -26,7 +26,8 @@ Do not manually change active data files. Old playlist files may remain in playl
 const BATCH_SIZE = 12;
 const SAFE_ID = /^[a-zA-Z0-9_-]+$/;
 
-const playlistPath = (id) => `${PLAYLISTS}/${id}.json`;
+const playlistPath = (id) => `${PLAYLISTS}/${game.release?.generation === 13 ? id.toLowerCase() : id}.json`;
+const originalPlaylistPath = (id) => `${PLAYLISTS}/${id}.json`;
 const playbackPath = (world) => `${PLAYBACK}/${world}.json`;
 
 async function fetchJson(path, { optional = false } = {}) {
@@ -113,6 +114,9 @@ async function mapBatches(items, action) {
 
 async function readPlaylist(id, onRecreated = null) {
   let data = await fetchJson(playlistPath(id), { optional: true });
+  if (data === null && originalPlaylistPath(id) !== playlistPath(id)) {
+    data = await fetchJson(originalPlaylistPath(id), { optional: true });
+  }
   if (data === null && game.user.isGM) {
     await createDirectory(PLAYLISTS);
     data = { _id: id, name: game.i18n.format("RNPLAYCOMP.Archive.RecreatedPlaylistName", { id }), sounds: [] };
@@ -130,9 +134,13 @@ export async function missingIndexedPlaylists() {
   if (!index) {
     return { missingIndex: true, ids: [] };
   }
-  const missing = await mapBatches(index.playlists, async (id) =>
-    (await fetchJson(playlistPath(id), { optional: true })) === null ? id : null,
-  );
+  const missing = await mapBatches(index.playlists, async (id) => {
+    if ((await fetchJson(playlistPath(id), { optional: true })) !== null) return null;
+    if (originalPlaylistPath(id) !== playlistPath(id)) {
+      if ((await fetchJson(originalPlaylistPath(id), { optional: true })) !== null) return null;
+    }
+    return id;
+  });
   return { missingIndex: false, ids: missing.filter(Boolean) };
 }
 
@@ -183,7 +191,11 @@ async function uploadJson(path, data) {
   const directory = path.slice(0, separator);
   const file = new File([JSON.stringify(data, null, 2)], path.slice(separator + 1), { type: "application/json" });
   const result = await foundry.applications.apps.FilePicker.upload("data", directory, file, {}, { notify: false });
-  if (result?.path !== path) throw error("UploadFailed", { path, result: result?.path ?? "—" });
+  const uploadedPath = game.release?.generation === 13 ? result?.path?.toLowerCase() : result?.path;
+  const expectedPath = game.release?.generation === 13 ? path.toLowerCase() : path;
+  if (uploadedPath !== expectedPath) {
+    throw error("UploadFailed", { path, result: result?.path ?? "—" });
+  }
 }
 
 async function createEmptyStore() {
@@ -213,7 +225,15 @@ async function listedIds(directory) {
 
 async function rebuildIndex() {
   // Without the index, every playlist file is treated as active. Folder membership cannot be recovered.
-  const playlistIds = await listedIds(PLAYLISTS);
+  const playlistIds = [
+    ...new Set(
+      await mapBatches(await listedIds(PLAYLISTS), async (fileId) => {
+        const data = await fetchJson(`${PLAYLISTS}/${fileId}.json`);
+        if (!data?._id || !Array.isArray(data.sounds)) throw error("UnsupportedFile");
+        return data._id;
+      }),
+    ),
+  ];
   const worlds = await listedIds(PLAYBACK);
   const revisionData = await fetchJson(REVISION, { optional: true });
   if (revisionData && (revisionData.schema !== 1 || !Number.isInteger(revisionData.revision))) {

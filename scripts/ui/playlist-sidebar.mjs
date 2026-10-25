@@ -52,13 +52,31 @@ export async function handleDrop(app, original, event) {
   return original.call(app, event);
 }
 
+function contextOption(options, { label, icon, visible, onClick }) {
+  if (options.some((option) => "name" in option)) {
+    return {
+      name: label,
+      icon: `<i class="${icon}"></i>`,
+      condition: visible,
+      callback: (header) => onClick(null, header),
+    };
+  }
+  return { label, icon, visible, onClick };
+}
+
+function hideNativeOption(option, visible) {
+  const key = "name" in option ? "condition" : "visible";
+  const original = option[key];
+  option[key] = (header) => visible(header) && (typeof original === "function" ? original(header) : original !== false);
+}
+
 export function addMoveMenu(options, kind) {
   const getDocument = (header) => {
     const li = header.closest(".directory-item");
     return kind === "folder" ? game.folders.get(li?.dataset.folderId) : game.playlists.get(li?.dataset.entryId);
   };
   options.push(
-    {
+    contextOption(options, {
       label: t("UI.MakeGlobal"),
       icon: "fa-solid fa-globe",
       visible: (header) =>
@@ -72,8 +90,8 @@ export function addMoveMenu(options, kind) {
           reportError(e);
         }
       },
-    },
-    {
+    }),
+    contextOption(options, {
       label: t("UI.MakeLocal"),
       icon: "fa-solid fa-house",
       visible: (header) =>
@@ -87,7 +105,7 @@ export function addMoveMenu(options, kind) {
           reportError(e);
         }
       },
-    },
+    }),
   );
 }
 
@@ -244,67 +262,65 @@ export function patchDirectory() {
     }
   };
   Hooks.on("getPlaylistContextOptions", (_app, options) => {
-    const deletion = options.find((option) => option.label === "SIDEBAR.Delete");
+    const deletion = options.find((option) => (option.label ?? option.name) === "SIDEBAR.Delete");
     if (deletion) {
-      const originalVisible = deletion.visible;
-      deletion.visible = (header) => {
+      hideNativeOption(deletion, (header) => {
         const playlist = game.playlists.get(header.closest(".directory-item")?.dataset.entryId);
-        return (
-          !isGlobal(playlist) && (typeof originalVisible === "function" ? originalVisible(header) : originalVisible)
-        );
-      };
+        return !isGlobal(playlist);
+      });
     }
     addMoveMenu(options, "playlist");
-    options.push({
-      label: t("UI.DeleteEverywhere"),
-      icon: "fa-solid fa-trash",
-      visible: (header) =>
-        game.user.isGM && isGlobal(game.playlists.get(header.closest(".directory-item")?.dataset.entryId)),
-      onClick: async (_event, header) => {
-        const playlist = game.playlists.get(header.closest(".directory-item")?.dataset.entryId);
-        if (!playlist) return;
-        const yes = await foundry.applications.api.DialogV2.confirm({
-          window: { title: t("UI.DeleteGlobalPlaylist") },
-          content: `<p class="rn-confirm-message">${foundry.utils.escapeHTML(t("UI.DeleteGlobalPlaylistConfirm", { name: playlist.name }))}</p>`,
-          yes: { label: t("UI.DeleteEverywhere") },
-        });
-        if (yes) {
-          try {
-            await removeGlobal(playlist.id);
-          } catch (cause) {
-            reportError(cause);
+    options.push(
+      contextOption(options, {
+        label: t("UI.DeleteEverywhere"),
+        icon: "fa-solid fa-trash",
+        visible: (header) =>
+          game.user.isGM && isGlobal(game.playlists.get(header.closest(".directory-item")?.dataset.entryId)),
+        onClick: async (_event, header) => {
+          const playlist = game.playlists.get(header.closest(".directory-item")?.dataset.entryId);
+          if (!playlist) return;
+          const yes = await foundry.applications.api.DialogV2.confirm({
+            window: { title: t("UI.DeleteGlobalPlaylist") },
+            content: `<p class="rn-confirm-message">${foundry.utils.escapeHTML(t("UI.DeleteGlobalPlaylistConfirm", { name: playlist.name }))}</p>`,
+            yes: { label: t("UI.DeleteEverywhere") },
+          });
+          if (yes) {
+            try {
+              await removeGlobal(playlist.id);
+            } catch (cause) {
+              reportError(cause);
+            }
           }
-        }
-      },
-    });
+        },
+      }),
+    );
   });
   Hooks.on("getFolderContextOptions", (app, options) => {
     if (app.documentName !== "Playlist") return;
     for (const option of options) {
-      if (!["FOLDER.Remove", "FOLDER.Delete"].includes(option.label)) continue;
-      const originalVisible = option.visible;
-      option.visible = (header) => {
+      if (!["FOLDER.Remove", "FOLDER.Delete"].includes(option.label ?? option.name)) continue;
+      hideNativeOption(option, (header) => {
         const folder = game.folders.get(header.closest(".directory-item")?.dataset.folderId);
-        return (
-          !isGlobalFolder(folder) && (typeof originalVisible === "function" ? originalVisible(header) : originalVisible)
-        );
-      };
+        return !isGlobalFolder(folder);
+      });
     }
     addMoveMenu(options, "folder");
-    options.push({
-      label: t("UI.DeleteEverywhere"),
-      icon: "fa-solid fa-trash",
-      visible: (header) =>
-        game.user.isGM && isGlobalFolder(game.folders.get(header.closest(".directory-item")?.dataset.folderId)),
-      onClick: async (_event, header) => {
-        const folder = game.folders.get(header.closest(".directory-item")?.dataset.folderId);
-        try {
-          await folder?.delete();
-        } catch (e) {
-          reportError(e);
-        }
-      },
-    });
+    options.push(
+      contextOption(options, {
+        label: t("UI.DeleteEverywhere"),
+        icon: "fa-solid fa-trash",
+        visible: (header) =>
+          game.user.isGM && isGlobalFolder(game.folders.get(header.closest(".directory-item")?.dataset.folderId)),
+        onClick: async (_event, header) => {
+          const folder = game.folders.get(header.closest(".directory-item")?.dataset.folderId);
+          try {
+            await folder?.delete();
+          } catch (e) {
+            reportError(e);
+          }
+        },
+      }),
+    );
   });
   Hooks.on("renderPlaylistDirectory", (app) => decorateDirectory(app));
 }

@@ -16,7 +16,7 @@ import {
 } from "../scripts/library/global-library.mjs";
 import { filterHiddenTree, isHidden, setHidden } from "../scripts/library/visibility.mjs";
 import { persist, readArchive, readStore, serialize } from "../scripts/storage/global-store.mjs";
-import { handleDrop } from "../scripts/ui/playlist-sidebar.mjs";
+import { addMoveMenu, handleDrop } from "../scripts/ui/playlist-sidebar.mjs";
 
 class Collection extends Map {
   filter(predicate) {
@@ -37,7 +37,7 @@ function translation(key, data = {}) {
   return text.replace(/\{(\w+)\}/g, (_, name) => String(data[name]));
 }
 
-function setup({ uploadFails = false, directoryExists = true } = {}) {
+function setup({ uploadFails = false, directoryExists = true, generation = 14 } = {}) {
   let generatedIds = 0;
   const files = new Map([
     ["rn-global-playlists/index.json", { schema: 2, revision: 0, folders: [], playlists: [], worlds: [] }],
@@ -53,6 +53,7 @@ function setup({ uploadFails = false, directoryExists = true } = {}) {
 
   globalThis.ui = { notifications: { error() {}, warn() {} } };
   globalThis.game = {
+    release: { generation },
     user: { id: "gm", isGM: true },
     i18n: { localize: (key) => translation(key), format: translation },
     settings: {
@@ -83,7 +84,7 @@ function setup({ uploadFails = false, directoryExists = true } = {}) {
             return { target: directory, files: [...files.keys()] };
           },
           upload: async (_source, directory, file) => {
-            const path = `${directory}/${file.name}`;
+            const path = generation === 13 ? `${directory}/${file.name}`.toLowerCase() : `${directory}/${file.name}`;
             events.push(`upload:${path}`);
             if (uploadFails === true || uploadFails === path) throw new Error("Disk write failed");
             files.set(path, file.name.endsWith(".json") ? JSON.parse(await file.text()) : await file.text());
@@ -339,6 +340,34 @@ test("moving a nested folder saves all original IDs and separates playback by wo
   ]);
   assert.equal(folders.get("child"), state.folders.get("child"));
   assert.equal(playlists.get("playlist-list"), state.playlists.get("playlist-list"));
+});
+
+test("Foundry 13 keeps mixed-case playlist IDs when uploads lowercase filenames", async () => {
+  const { playlists, events, files } = setup({ generation: 13 });
+  const local = addLocalPlaylist(playlists, events, "MixedCaseID", null);
+
+  await moveBranchToGlobal(local, null, false);
+
+  assert.equal(files.get("rn-global-playlists/playlists/mixedcaseid.json")._id, "MixedCaseID");
+  assert.deepEqual(files.get("rn-global-playlists/index.json").playlists, ["MixedCaseID"]);
+  assert.equal((await readStore()).playlists[0]._id, "MixedCaseID");
+
+  files.delete("rn-global-playlists/index.json");
+  assert.deepEqual(
+    (await readStore()).playlists.map((playlist) => playlist._id),
+    ["MixedCaseID"],
+  );
+});
+
+test("Foundry 13 context entries use names, HTML icons, conditions and callbacks", () => {
+  setup({ generation: 13 });
+  const options = [{ name: "SIDEBAR.Delete", icon: '<i class="fa-solid fa-trash"></i>' }];
+  addMoveMenu(options, "playlist");
+  assert.equal(options[1].name, translation("RNPLAYCOMP.UI.MakeGlobal"));
+  assert.equal(options[1].icon, '<i class="fa-solid fa-globe"></i>');
+  assert.equal(typeof options[1].condition, "function");
+  assert.equal(typeof options[1].callback, "function");
+  assert.equal(options[1].label, undefined);
 });
 
 test("failed global-file write keeps local originals and the previous revision", async () => {
