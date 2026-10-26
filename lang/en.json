@@ -6,6 +6,10 @@
       "Suppress": "Don't show again"
     },
     "Settings": {
+      "MaxBufferDuration": {
+        "Name": "Buffering threshold (seconds)",
+        "Hint": "Sounds whose duration exceeds this threshold are streamed instead of buffered. Changes apply to future loads. Already loaded or cached sounds keep their playback type until the client reconnects.\nFoundry's default is 600 seconds."
+      },
       "GlobalArchive": {
         "Hint": "Inspect and restore deleted or replaced global playlists and folders."
       },

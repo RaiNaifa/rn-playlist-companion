@@ -44,6 +44,13 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 - Expanded playlists share one row budget across the visible area. Sounds outside it stay available through scrolling and search.
 - Known issue: Minor stutters may occasionally occur when scrolling through a large number of sounds.
 
+### Audio Buffering
+
+- The audio streaming threshold can be adjusted manually. By default, Foundry streams audio files longer than 600 seconds (10 minutes).
+- Streaming can help sounds start sooner for clients because playback can begin before the full file downloads.
+- Lowering the threshold also reduces audio buffer memory use. Raising it keeps more sounds fully loaded in memory.
+- Inspired by Nordiii's [Audio duration until stream](https://github.com/Nordiii/audio-duration-until-stream-setting). Included here so playlist audio settings can be managed in one module. Implemented independently.
+
 ## Minor Improvements
 
 - Long sound and playlist names scroll on hover when they do not fit in the sidebar.

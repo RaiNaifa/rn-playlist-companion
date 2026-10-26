@@ -1,3 +1,4 @@
+import { registerBufferDurationSettings } from "./audio/buffer-duration.mjs";
 import { registerPreviewSettings } from "./audio/preview.mjs";
 import { MODULE_ID, reportError, state } from "./core/context.mjs";
 import { patchDocumentMethods } from "./foundry/document-bridge.mjs";
@@ -17,6 +18,7 @@ Hooks.once("init", () => {
   registerPreviewSettings();
   registerSoundWindowSettings();
   registerReleaseNotesSettings();
+  registerBufferDurationSettings();
   patchDocumentMethods();
   patchDirectory();
 });
