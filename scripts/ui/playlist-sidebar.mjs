@@ -10,6 +10,7 @@ import {
   registerPreviewWidgetUpdates,
   syncPreviewWidget,
 } from "./preview-widget.mjs";
+import { decorateSoundChannelIcons } from "./sound-channel-icon.mjs";
 import { mountSoundWindows, patchSoundWindows, searchActive } from "./sound-window.mjs";
 
 const uiState = { open: false, editing: false, showHidden: false };
@@ -128,10 +129,12 @@ export function decorateDirectory(app) {
   syncPreviewWidget(element);
   mountSoundWindows(app, element, () => {
     decorateSounds(element);
+    decorateSoundChannelIcons(element);
     decorateNames(element);
     decorateDescriptions(element);
   });
   decorateSounds(element);
+  decorateSoundChannelIcons(element);
   decorateNames(element);
   decorateDescriptions(element);
   decoratePreviewVolume(element);
@@ -241,6 +244,14 @@ export function decorateDirectory(app) {
 export function patchDirectory() {
   registerDescriptionTooltipUpdates();
   registerPreviewWidgetUpdates();
+  Hooks.on("updatePlaylistSound", (_sound, changes) => {
+    if (!Object.hasOwn(changes, "channel")) return;
+    for (const element of document.querySelectorAll(".playlists-sidebar")) decorateSoundChannelIcons(element);
+  });
+  Hooks.on("updatePlaylist", (_playlist, changes) => {
+    if (!Object.hasOwn(changes, "channel")) return;
+    for (const element of document.querySelectorAll(".playlists-sidebar")) decorateSoundChannelIcons(element);
+  });
   const Directory = foundry.applications.sidebar.tabs.PlaylistDirectory;
   patchSoundWindows(Directory);
   const prepareDirectory = Directory.prototype._prepareDirectoryContext;

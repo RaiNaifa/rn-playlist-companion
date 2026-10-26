@@ -10,6 +10,7 @@ import {
 import { reportError, t } from "../core/context.mjs";
 import { decorateDescriptions } from "./description-tooltip.mjs";
 import { decorateNames } from "./name-marquee.mjs";
+import { soundChannelIconClass } from "./sound-channel-icon.mjs";
 
 let previewTimer;
 
@@ -88,7 +89,7 @@ export function syncPreviewWidget(element) {
   row.dataset.soundUuid = playlistSound.uuid;
   const header = document.createElement("header");
   const icon = document.createElement("i");
-  icon.className = "fa-thin fa-music";
+  icon.className = `fa-thin rn-channel-icon ${soundChannelIconClass(playlistSound)}`;
   icon.setAttribute("inert", "");
   const name = document.createElement("label");
   name.className = "ellipsis";
