@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+
+      - name: Validate release version and URL
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+
+          const manifest = JSON.parse(readFileSync('module.json', 'utf8'));
+          const tag = process.env.RELEASE_TAG;
+          const expectedArchive = `rn-playlist-companion-${tag}.zip`;
+          if (tag !== `v${manifest.version}`) {
+            throw new Error(`Tag ${tag} does not match module version ${manifest.version}`);
+          }
+          if (!manifest.download.endsWith(`/releases/download/${tag}/${expectedArchive}`)) {
+            throw new Error(`Download URL must end with /releases/download/${tag}/${expectedArchive}`);
+          }
+          NODE
+
+      - name: Build Foundry package
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist/package
+          cp module.json README.md LICENSE dist/package/
+          cp -R scripts styles lang dist/package/
+          cp module.json dist/module.json
+          (cd dist/package && zip -q -r "../rn-playlist-companion-${RELEASE_TAG}.zip" .)
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            "dist/rn-playlist-companion-${RELEASE_TAG}.zip" \
+            dist/module.json \
+            --clobber

@@ -2,7 +2,14 @@
   "id": "rn-playlist-companion",
   "title": "RN Playlist Companion",
   "description": "Playlists enhancement: preview sounds before playing them, make playlists global across your worlds, control their visibility, and more.",
-  "version": "0.1.9",
+  "version": "0.2.0",
+  "url": "https://github.com/RaiNaifa/rn-playlist-companion",
+  "manifest": "https://raw.githubusercontent.com/RaiNaifa/rn-playlist-companion/master/module.json",
+  "download": "https://github.com/RaiNaifa/rn-playlist-companion/releases/download/v0.2.0/rn-playlist-companion-v0.2.0.zip",
+  "readme": "README.md",
+  "license": "LICENSE",
+  "bugs": "https://github.com/RaiNaifa/rn-playlist-companion/issues",
+  "changelog": "https://github.com/RaiNaifa/rn-playlist-companion/releases",
   "authors": [
     {
       "name": "RaiNaifa"

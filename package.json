@@ -1,5 +1,6 @@
 {
   "private": true,
+  "packageManager": "pnpm@11.25.0",
   "scripts": {
     "check": "node node_modules/@biomejs/biome/bin/biome check . && node --test",
     "fix": "node node_modules/@biomejs/biome/bin/biome check --write . && node --test",

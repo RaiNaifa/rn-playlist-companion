@@ -1,8 +1,16 @@
 # RN Playlist Companion
 
-![Verified with Foundry VTT v14](https://img.shields.io/badge/Foundry%20VTT-v14-green)
+![Verified with Foundry VTT v13 and v14](https://img.shields.io/badge/Foundry%20VTT-v13%20%7C%20v14-green)
 
 Enhance Foundry VTT’s built-in playlists and improve their performance. Preview sounds before playing them, make playlists global across your worlds, and control their visibility.
+
+## Manual Installation
+
+In Foundry VTT, open **Add-on Modules → Install Module**, paste the following URL into **Manifest URL**, and click **Install**:
+
+```
+https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/module.json
+```
 
 ## Features
 
@@ -41,3 +49,4 @@ Enhance Foundry VTT’s built-in playlists and improve their performance. Previe
 - Long sound and playlist names scroll on hover when they do not fit in the sidebar.
 - GMs can hover over a playlist or sound name to see its description in a compact tooltip.
 - Sound icons reflect their audio channel.
+

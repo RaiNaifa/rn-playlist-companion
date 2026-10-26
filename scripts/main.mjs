@@ -7,6 +7,7 @@ import { reloadGlobalPlaylists } from "./library/global-library.mjs";
 import { registerVisibilitySettings } from "./library/visibility.mjs";
 import { registerArchiveSettings } from "./ui/archive-dialog.mjs";
 import { patchDirectory } from "./ui/playlist-sidebar.mjs";
+import { registerReleaseNotesSettings, showReleaseNotesAfterUpdate } from "./ui/release-notes.mjs";
 import { registerSoundWindowSettings } from "./ui/sound-window.mjs";
 
 Hooks.once("init", () => {
@@ -15,6 +16,7 @@ Hooks.once("init", () => {
   registerVisibilitySettings();
   registerPreviewSettings();
   registerSoundWindowSettings();
+  registerReleaseNotesSettings();
   patchDocumentMethods();
   patchDirectory();
 });
@@ -28,4 +30,8 @@ Hooks.once("ready", async () => {
   } catch (e) {
     reportError(e);
   }
+});
+
+Hooks.once("ready", () => {
+  showReleaseNotesAfterUpdate().catch(console.error);
 });

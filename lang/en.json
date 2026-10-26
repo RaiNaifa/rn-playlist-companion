@@ -1,5 +1,10 @@
 {
   "RNPLAYCOMP": {
+    "ReleaseNotes": {
+      "Title": "RN Playlist Companion - Changelog",
+      "Close": "Close",
+      "Suppress": "Don't show again"
+    },
     "Settings": {
       "GlobalArchive": {
         "Hint": "Inspect and restore deleted or replaced global playlists and folders."
