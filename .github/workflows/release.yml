@@ -62,3 +62,44 @@ jobs:
             "dist/rn-playlist-companion-${RELEASE_TAG}.zip" \
             dist/module.json \
             --clobber
+
+      - name: Publish version to Foundry
+        env:
+          FOUNDRY_RELEASE_TOKEN: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+
+          const token = process.env.FOUNDRY_RELEASE_TOKEN;
+          if (!token) throw new Error('FOUNDRY_RELEASE_TOKEN repository secret is missing');
+
+          const manifest = JSON.parse(readFileSync('module.json', 'utf8'));
+          const releaseUrl = `https://github.com/${process.env.REPOSITORY}/releases`;
+          const body = {
+            id: manifest.id,
+            release: {
+              version: manifest.version,
+              manifest: `${releaseUrl}/download/${process.env.RELEASE_TAG}/module.json`,
+              notes: `${releaseUrl}/tag/${process.env.RELEASE_TAG}`,
+              compatibility: manifest.compatibility,
+            },
+          };
+
+          for (const dryRun of [true, false]) {
+            const response = await fetch('https://foundryvtt.com/_api/packages/release_version/', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: token,
+              },
+              body: JSON.stringify(dryRun ? { ...body, 'dry-run': true } : body),
+            });
+            const result = await response.text();
+            if (!response.ok) {
+              throw new Error(`Foundry ${dryRun ? 'validation' : 'publication'} failed (${response.status}): ${result}`);
+            }
+            console.log(`Foundry ${dryRun ? 'validation' : 'publication'} succeeded`);
+          }
+          NODE
