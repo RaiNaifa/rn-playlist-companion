@@ -1,3 +1,4 @@
+import { installBoundedPlayback } from "./audio/bounded-playback.mjs";
 import { registerBufferDurationSettings } from "./audio/buffer-duration.mjs";
 import { registerPreviewSettings } from "./audio/preview.mjs";
 import { MODULE_ID, reportError, state } from "./core/context.mjs";
@@ -6,9 +7,12 @@ import { onSocket } from "./foundry/socket-sync.mjs";
 import { handleConflicts, registerConflictSettings } from "./library/conflict-controller.mjs";
 import { reloadGlobalPlaylists } from "./library/global-library.mjs";
 import { registerVisibilitySettings } from "./library/visibility.mjs";
+import { registerRevisionControlSetting } from "./storage/revision-control.mjs";
 import { registerArchiveSettings } from "./ui/archive-dialog.mjs";
+import { registerConfigSavePlayback } from "./ui/config-save-playback.mjs";
 import { patchDirectory } from "./ui/playlist-sidebar.mjs";
 import { registerReleaseNotesSettings, showReleaseNotesAfterUpdate } from "./ui/release-notes.mjs";
+import { registerSoundBounds } from "./ui/sound-bounds.mjs";
 import { registerSoundWindowSettings } from "./ui/sound-window.mjs";
 
 Hooks.once("init", () => {
@@ -19,6 +23,10 @@ Hooks.once("init", () => {
   registerSoundWindowSettings();
   registerReleaseNotesSettings();
   registerBufferDurationSettings();
+  registerSoundBounds();
+  registerConfigSavePlayback();
+  registerRevisionControlSetting();
+  installBoundedPlayback();
   patchDocumentMethods();
   patchDirectory();
 });

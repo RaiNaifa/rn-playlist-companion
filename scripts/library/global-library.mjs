@@ -8,6 +8,7 @@ import {
   removeFromClient,
 } from "../foundry/client-collection.mjs";
 import { persist, readStore, serialize, serializeFolders } from "../storage/global-store.mjs";
+import { revisionMessage } from "../storage/revision-control.mjs";
 import { archiveEntries } from "./archive.mjs";
 
 export function applyChanges(data, changes) {
@@ -23,15 +24,29 @@ export function applyChanges(data, changes) {
       foundry.utils.mergeObject(sound, patch, { inplace: true });
     }
   }
+  if (!next.playing && next.sounds?.some((sound) => sound.playing)) next.playing = true;
   return next;
 }
 
-export async function updateGlobal(playlist, changes, _options = {}) {
+export async function updateGlobal(playlist, changes, options = {}) {
+  if (
+    !game.user.isGM &&
+    (!game.user.hasPermission("PLAYLIST_CREATE") || !playlist.canUserModify(game.user, "update", changes))
+  ) {
+    throw error("PlaylistPermissionDenied");
+  }
   const updated = applyChanges(playlist.toObject(), changes);
   const candidate = serialize().map((item) => (item._id === playlist.id ? storedData(updated) : item));
-  await persist(candidate, nextPlayback(playlist.id, updated));
-  installInClient(updated);
-  publish("upsert", updated);
+  const saved = await persist(candidate, nextPlayback(playlist.id, updated), null, null, { announceRevision: false });
+  installInClient(updated, options);
+  publish(
+    "patch",
+    {
+      id: playlist.id,
+      changes,
+    },
+    revisionMessage(saved),
+  );
   return state.playlists.get(playlist.id);
 }
 
@@ -52,20 +67,33 @@ export async function deleteGlobalSounds(playlist, ids) {
 }
 
 export async function replaceGlobalSounds(playlist, sounds) {
+  if (
+    !game.user.isGM &&
+    (!game.user.hasPermission("PLAYLIST_CREATE") || !playlist.canUserModify(game.user, "update"))
+  ) {
+    throw error("PlaylistPermissionDenied");
+  }
   const next = playlist.toObject();
   next.sounds = sounds;
   const candidate = serialize().map((item) => (item._id === playlist.id ? storedData(next) : item));
-  await persist(candidate, nextPlayback(playlist.id, next));
+  const saved = await persist(candidate, nextPlayback(playlist.id, next), null, null, { announceRevision: false });
   installInClient(next);
-  publish("upsert", next);
+  publish("upsert", next, revisionMessage(saved));
   return state.playlists.get(playlist.id);
 }
 
 export async function removeGlobal(id) {
   if (!state.playlists.has(id)) throw error("GlobalPlaylistNotFound");
+  const playlist = state.playlists.get(id);
+  if (
+    !game.user.isGM &&
+    (!game.user.hasPermission("PLAYLIST_CREATE") || !playlist.canUserModify(game.user, "delete"))
+  ) {
+    throw error("PlaylistPermissionDenied");
+  }
   const playback = foundry.utils.deepClone(state.playbackByWorld);
   for (const world of Object.values(playback)) delete world[id];
-  await persist(
+  const saved = await persist(
     serialize().filter((item) => item._id !== id),
     playback,
     null,
@@ -75,9 +103,10 @@ export async function removeGlobal(id) {
         reason: "deleted",
       }),
     },
+    { announceRevision: false },
   );
   removeFromClient(id);
-  publish("remove", { id });
+  publish("remove", { id }, revisionMessage(saved));
   return true;
 }
 
@@ -257,6 +286,7 @@ function applyGlobalData(disk) {
     for (const id of [...state.playlists.keys()]) if (!playlistIds.has(id)) removeFromClient(id);
     for (const id of [...state.folders.keys()]) if (!folderIds.has(id)) removeFolder(id);
     state.revision = disk.revision;
+    state.indexCache = { revision: disk.revision, index: disk.indexData };
     state.playlistOrder = disk.playlists.map((playlist) => playlist._id);
     state.folderOrder = disk.folders.map((folder) => folder._id);
     state.playbackByWorld = disk.playbackByWorld ?? {};
@@ -316,6 +346,7 @@ function applyGlobalData(disk) {
 }
 
 export function reloadGlobalPlaylists() {
+  state.indexCache = null;
   reloadPending = true;
   if (reloadTask) return reloadTask;
   reloadTask = (async () => {

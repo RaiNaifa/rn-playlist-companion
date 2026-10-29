@@ -4,6 +4,7 @@ import { folderBranch, moveBranchToGlobal, moveBranchToLocal, removeGlobal } fro
 import { filterHiddenTree, hiddenIds, isHidden, setHidden } from "../library/visibility.mjs";
 import { decorateDescriptions, registerDescriptionTooltipUpdates } from "./description-tooltip.mjs";
 import { decorateNames } from "./name-marquee.mjs";
+import { patchPlayingTimer } from "./playing-timer.mjs";
 import {
   decoratePreviewVolume,
   decorateSounds,
@@ -254,6 +255,7 @@ export function patchDirectory() {
   });
   const Directory = foundry.applications.sidebar.tabs.PlaylistDirectory;
   patchSoundWindows(Directory);
+  patchPlayingTimer(Directory);
   const prepareDirectory = Directory.prototype._prepareDirectoryContext;
   Directory.prototype._prepareDirectoryContext = async function (context, options) {
     await prepareDirectory.call(this, context, options);

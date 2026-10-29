@@ -1,5 +1,6 @@
 import { storedData } from "../audio/playback-state.mjs";
 import { DIRECTORY, error, publish, state } from "../core/context.mjs";
+import { revisionChecksDisabled } from "./revision-control.mjs";
 
 // The index tracks membership.
 // Revision advances even when only playlist or playback data changes.
@@ -29,6 +30,21 @@ const SAFE_ID = /^[a-zA-Z0-9_-]+$/;
 const playlistPath = (id) => `${PLAYLISTS}/${game.release?.generation === 13 ? id.toLowerCase() : id}.json`;
 const originalPlaylistPath = (id) => `${PLAYLISTS}/${id}.json`;
 const playbackPath = (world) => `${PLAYBACK}/${world}.json`;
+
+function lowercaseFilename(path) {
+  const separator = path.lastIndexOf("/");
+  return `${path.slice(0, separator + 1)}${path.slice(separator + 1).toLowerCase()}`;
+}
+
+function sameUploadedPath(expected, actual) {
+  if (typeof actual !== "string") return false;
+  const expectedSeparator = expected.lastIndexOf("/");
+  const actualSeparator = actual.lastIndexOf("/");
+  return (
+    expected.slice(0, expectedSeparator) === actual.slice(0, actualSeparator) &&
+    expected.slice(expectedSeparator + 1).toLowerCase() === actual.slice(actualSeparator + 1).toLowerCase()
+  );
+}
 
 async function fetchJson(path, { optional = false } = {}) {
   const response = await fetch(`${path}?t=${Date.now()}`, { cache: "no-store" });
@@ -117,6 +133,10 @@ async function readPlaylist(id, onRecreated = null) {
   if (data === null && originalPlaylistPath(id) !== playlistPath(id)) {
     data = await fetchJson(originalPlaylistPath(id), { optional: true });
   }
+  const lowercasePath = lowercaseFilename(originalPlaylistPath(id));
+  if (data === null && lowercasePath !== playlistPath(id)) {
+    data = await fetchJson(lowercasePath, { optional: true });
+  }
   if (data === null && game.user.isGM) {
     await createDirectory(PLAYLISTS);
     data = { _id: id, name: game.i18n.format("RNPLAYCOMP.Archive.RecreatedPlaylistName", { id }), sounds: [] };
@@ -139,6 +159,10 @@ export async function missingIndexedPlaylists() {
     if (originalPlaylistPath(id) !== playlistPath(id)) {
       if ((await fetchJson(originalPlaylistPath(id), { optional: true })) !== null) return null;
     }
+    const lowercasePath = lowercaseFilename(originalPlaylistPath(id));
+    if (lowercasePath !== playlistPath(id)) {
+      if ((await fetchJson(lowercasePath, { optional: true })) !== null) return null;
+    }
     return id;
   });
   return { missingIndex: false, ids: missing.filter(Boolean) };
@@ -146,6 +170,10 @@ export async function missingIndexedPlaylists() {
 
 async function readPlayback(world, { required = false } = {}) {
   let data = await fetchJson(playbackPath(world), { optional: true });
+  const lowercasePath = lowercaseFilename(playbackPath(world));
+  if (data === null && lowercasePath !== playbackPath(world)) {
+    data = await fetchJson(lowercasePath, { optional: true });
+  }
   if (data === null && required && game.user.isGM) {
     await createDirectory(PLAYBACK);
     data = { schema: 1, world, playlists: {} };
@@ -191,9 +219,7 @@ async function uploadJson(path, data) {
   const directory = path.slice(0, separator);
   const file = new File([JSON.stringify(data, null, 2)], path.slice(separator + 1), { type: "application/json" });
   const result = await foundry.applications.apps.FilePicker.upload("data", directory, file, {}, { notify: false });
-  const uploadedPath = game.release?.generation === 13 ? result?.path?.toLowerCase() : result?.path;
-  const expectedPath = game.release?.generation === 13 ? path.toLowerCase() : path;
-  if (uploadedPath !== expectedPath) {
+  if (!sameUploadedPath(path, result?.path)) {
     throw error("UploadFailed", { path, result: result?.path ?? "—" });
   }
 }
@@ -279,15 +305,68 @@ export async function readStore() {
   const playlists = await mapBatches(index.playlists, (id) =>
     readPlaylist(id, (missingId) => recreatedPlaylists.add(missingId)),
   );
-  const revision = await readRevision(index);
+  let revision = await readRevision(index);
   if (index.revision > revision) throw error("UnsupportedFile");
   if (game.user.isGM && index.archive && (await fetchJson(ARCHIVE, { optional: true })) === null) {
     await uploadJson(ARCHIVE, { schema: 1, entries: [] });
     ui.notifications.warn(game.i18n.localize("RNPLAYCOMP.Notifications.LostArchive"));
   }
-  const playbackByWorld = {
-    [game.world.id]: await readPlayback(game.world.id, { required: index.worlds.includes(game.world.id) }),
+  let currentPlayback = await readPlayback(game.world.id, { required: index.worlds.includes(game.world.id) });
+  const playlistsById = new Map(playlists.map((playlist) => [playlist._id, playlist]));
+  const cleanPlayback = (playback) => {
+    let changed = false;
+    for (const [playlistId, saved] of Object.entries(playback)) {
+      const playlist = playlistsById.get(playlistId);
+      if (!playlist) {
+        delete playback[playlistId];
+        changed = true;
+        continue;
+      }
+      const soundIds = new Set(playlist.sounds.map((sound) => sound._id));
+      let soundsCleaned = false;
+      for (const soundId of Object.keys(saved.sounds ?? {})) {
+        if (soundIds.has(soundId)) continue;
+        delete saved.sounds[soundId];
+        soundsCleaned = true;
+        changed = true;
+      }
+      if (soundsCleaned) saved.playing = Object.values(saved.sounds ?? {}).some((sound) => sound.playing);
+    }
+    return changed;
   };
+  const playbackCleaned = cleanPlayback(currentPlayback);
+  if (playbackCleaned && game.user.isGM) {
+    const cleaned = await enqueue(async () => {
+      const skipRevision = revisionChecksDisabled();
+      if (!skipRevision && (await readRevision(index)) !== revision) throw error("GlobalDataChanged");
+      const latest = await readPlayback(game.world.id, { required: true });
+      const previous = foundry.utils.deepClone(latest);
+      let committed = false;
+      if (cleanPlayback(latest)) {
+        if (!skipRevision && (await readRevision(index)) !== revision) throw error("GlobalDataChanged");
+        try {
+          await uploadJson(playbackPath(game.world.id), {
+            schema: 1,
+            world: game.world.id,
+            playlists: latest,
+          });
+          if (!skipRevision) await uploadJson(REVISION, { schema: 1, revision: revision + 1 });
+          committed = true;
+        } catch (cause) {
+          await uploadJson(playbackPath(game.world.id), {
+            schema: 1,
+            world: game.world.id,
+            playlists: previous,
+          }).catch(console.error);
+          throw cause;
+        }
+      }
+      return { playback: latest, revision: !skipRevision && committed ? revision + 1 : revision };
+    });
+    currentPlayback = cleaned.playback;
+    revision = cleaned.revision;
+  }
+  const playbackByWorld = { [game.world.id]: currentPlayback };
   if (recreatedPlaylists.size) {
     // A recreated playlist has no sounds, so stale playback in any world must not start it again.
     for (const world of index.worlds) {
@@ -304,7 +383,7 @@ export async function readStore() {
   ) {
     throw error("MixedFolders");
   }
-  return { ...index, revision, playlists, playbackByWorld };
+  return { ...index, revision, playlists, playbackByWorld, indexData: index };
 }
 
 export function serialize() {
@@ -331,13 +410,69 @@ export function enqueue(task) {
   return result;
 }
 
-export async function persist(candidate, playbackByWorld = null, folders = null, archiveChange = null) {
-  if (!game.user.isGM) throw error("GMOnlyEdit");
+function checkPlaylistPermissions(candidate, playbackByWorld, folders, archiveChange) {
+  if (game.user.isGM) return;
+  if (!game.user.hasPermission("PLAYLIST_CREATE")) throw error("PlaylistPermissionDenied");
+  if (folders && JSON.stringify(folders) !== JSON.stringify(serializeFolders())) {
+    throw error("PlaylistPermissionDenied");
+  }
+  const current = new Map(serialize().map((playlist) => [playlist._id, playlist]));
+  const next = new Map(candidate.map((playlist) => [playlist._id, playlist]));
+  const affected = new Set();
+  for (const id of new Set([...current.keys(), ...next.keys()])) {
+    if (JSON.stringify(current.get(id)) !== JSON.stringify(next.get(id))) affected.add(id);
+  }
+  const oldPlayback = state.playbackByWorld[game.world.id] ?? {};
+  const newPlayback = playbackByWorld?.[game.world.id] ?? oldPlayback;
+  for (const id of new Set([...Object.keys(oldPlayback), ...Object.keys(newPlayback)])) {
+    if (JSON.stringify(oldPlayback[id]) !== JSON.stringify(newPlayback[id])) affected.add(id);
+  }
+  if (archiveChange && ![...affected].some((id) => current.has(id) && !next.has(id))) {
+    throw error("PlaylistPermissionDenied");
+  }
+  for (const id of affected) {
+    const playlist = state.playlists.get(id);
+    if (!playlist) {
+      if (current.has(id) || !foundry.documents.Playlist.canUserCreate(game.user)) {
+        throw error("PlaylistPermissionDenied");
+      }
+      continue;
+    }
+    if (!playlist.canUserModify(game.user, next.has(id) ? "update" : "delete")) {
+      throw error("PlaylistPermissionDenied");
+    }
+    if (next.has(id) && JSON.stringify(current.get(id)?.ownership) !== JSON.stringify(next.get(id)?.ownership)) {
+      throw error("PlaylistPermissionDenied");
+    }
+  }
+  if (!game.user.hasPermission("FILES_UPLOAD")) throw error("GlobalFileUploadPermissionDenied");
+}
+
+export async function persist(
+  candidate,
+  playbackByWorld = null,
+  folders = null,
+  archiveChange = null,
+  { announceRevision = true } = {},
+) {
+  checkPlaylistPermissions(candidate, playbackByWorld, folders, archiveChange);
   return enqueue(async () => {
-    if (state.stale) throw error("Stale");
-    const disk = await readIndex();
-    const revision = await readRevision();
-    if (revision !== state.revision) throw error("RevisionMismatch");
+    if (state.stale) throw error("GlobalDataChanged");
+    const skipRevision = revisionChecksDisabled();
+    const cached =
+      !folders &&
+      !archiveChange &&
+      state.indexCache?.revision === state.revision &&
+      JSON.stringify(candidate.map((playlist) => playlist._id)) === JSON.stringify(state.indexCache.index.playlists)
+        ? state.indexCache
+        : null;
+    const [disk, revision] = await Promise.all([
+      cached ? cached.index : readIndex(),
+      skipRevision ? state.revision : readRevision(),
+    ]);
+    if ((!skipRevision && revision !== state.revision) || (cached && state.indexCache !== cached)) {
+      throw error("GlobalDataChanged");
+    }
     const oldArchive = archiveChange ? await readArchive() : null;
     const nextArchive = archiveChange
       ? {
@@ -370,14 +505,13 @@ export async function persist(candidate, playbackByWorld = null, folders = null,
     const nextWorld = { ...(playbackByWorld?.[game.world.id] ?? currentWorld) };
     for (const id of resetPlaybackIds) delete nextWorld[id];
     const playbackChanged = JSON.stringify(currentWorld) !== JSON.stringify(nextWorld);
-    const removedIds = disk.playlists.filter((id) => !next.has(id));
     const otherWorlds = disk.worlds.filter((world) => world !== game.world.id);
     const changedWorlds = [];
-    if (removedIds.length || resetPlaybackIds.length) {
+    if (resetPlaybackIds.length) {
       for (const world of otherWorlds) {
         const old = await readPlayback(world, { required: true });
         const updated = { ...old };
-        for (const id of [...removedIds, ...resetPlaybackIds]) delete updated[id];
+        for (const id of resetPlaybackIds) delete updated[id];
         if (JSON.stringify(old) !== JSON.stringify(updated)) changedWorlds.push({ world, old, updated });
       }
     }
@@ -388,7 +522,7 @@ export async function persist(candidate, playbackByWorld = null, folders = null,
       (Boolean(nextArchive) && !disk.archive);
     const index = {
       schema: 2,
-      revision: indexChanged ? revision + 1 : disk.revision,
+      revision: indexChanged && !skipRevision ? revision + 1 : disk.revision,
       folders: nextFolders,
       playlists: candidate.map((playlist) => playlist._id),
       worlds: [...new Set([...disk.worlds, ...(playbackChanged ? [game.world.id] : [])])],
@@ -419,13 +553,14 @@ export async function persist(candidate, playbackByWorld = null, folders = null,
         otherPlaybackWritten.push(world);
       }
       // The index is authoritative. Removed playlists may leave an orphan file. FilePicker has no public delete API.
-      if ((await readRevision()) !== revision) throw error("RevisionMismatch");
+      if (!skipRevision && (await readRevision()) !== revision) throw error("GlobalDataChanged");
       if (indexChanged) {
         await uploadJson(INDEX, index);
         indexWritten = true;
       }
-      await uploadJson(REVISION, { schema: 1, revision: revision + 1 });
+      if (!skipRevision) await uploadJson(REVISION, { schema: 1, revision: revision + 1 });
     } catch (cause) {
+      state.indexCache = null;
       try {
         if (archiveWritten) await uploadJson(ARCHIVE, oldArchive);
         for (const id of written) {
@@ -450,11 +585,18 @@ export async function persist(candidate, playbackByWorld = null, folders = null,
       }
       throw cause;
     }
-    state.revision = revision + 1;
+    state.revision = skipRevision ? revision : revision + 1;
+    state.indexCache = { revision: state.revision, index };
     state.playlistOrder = candidate.map((playlist) => playlist._id);
     state.folderOrder = nextFolders.map((folder) => folder._id);
     state.playbackByWorld = { ...state.playbackByWorld, [game.world.id]: nextWorld };
-    publish("revision", { revision: state.revision });
-    return { ...index, revision: state.revision, playlists: candidate, playbackByWorld: state.playbackByWorld };
+    if (announceRevision && !skipRevision) publish("revision", { revision: state.revision });
+    return {
+      ...index,
+      revision: state.revision,
+      revisionChecksDisabled: skipRevision,
+      playlists: candidate,
+      playbackByWorld: state.playbackByWorld,
+    };
   });
 }

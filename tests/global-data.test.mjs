@@ -9,10 +9,13 @@ import { onSocket } from "../scripts/foundry/socket-sync.mjs";
 import { forgetArchiveEntry, restoreArchived, restorePlan } from "../scripts/library/archive.mjs";
 import { resolveLocalConflict } from "../scripts/library/conflicts.mjs";
 import {
+  applyChanges,
   moveBranchToGlobal,
   moveBranchToLocal,
+  onGlobalDataApplied,
   reloadGlobalPlaylists,
   removeGlobal,
+  updateGlobal,
 } from "../scripts/library/global-library.mjs";
 import { filterHiddenTree, isHidden, setHidden } from "../scripts/library/visibility.mjs";
 import { persist, readArchive, readStore, serialize } from "../scripts/storage/global-store.mjs";
@@ -37,7 +40,12 @@ function translation(key, data = {}) {
   return text.replace(/\{(\w+)\}/g, (_, name) => String(data[name]));
 }
 
-function setup({ uploadFails = false, directoryExists = true, generation = 14 } = {}) {
+function setup({
+  uploadFails = false,
+  directoryExists = true,
+  generation = 14,
+  lowercaseUploads = generation === 13,
+} = {}) {
   let generatedIds = 0;
   const files = new Map([
     ["rn-global-playlists/index.json", { schema: 2, revision: 0, folders: [], playlists: [], worlds: [] }],
@@ -47,6 +55,7 @@ function setup({ uploadFails = false, directoryExists = true, generation = 14 } 
     directoryExists ? ["rn-global-playlists", "rn-global-playlists/playlists", "rn-global-playlists/playback"] : [],
   );
   const events = [];
+  const socketMessages = [];
   const hiddenByWorld = new Map();
   const folders = new Collection();
   const playlists = new Collection();
@@ -67,7 +76,12 @@ function setup({ uploadFails = false, directoryExists = true, generation = 14 } 
     playlists,
     scenes: [],
     audio: { locked: false },
-    socket: { emit: (_channel, message) => events.push(message.type) },
+    socket: {
+      emit: (_channel, message) => {
+        events.push(message.type);
+        socketMessages.push(message);
+      },
+    },
   };
   globalThis.foundry = {
     utils: { deepClone: structuredClone, randomID: () => `generated${++generatedIds}` },
@@ -84,7 +98,7 @@ function setup({ uploadFails = false, directoryExists = true, generation = 14 } 
             return { target: directory, files: [...files.keys()] };
           },
           upload: async (_source, directory, file) => {
-            const path = generation === 13 ? `${directory}/${file.name}`.toLowerCase() : `${directory}/${file.name}`;
+            const path = lowercaseUploads ? `${directory}/${file.name}`.toLowerCase() : `${directory}/${file.name}`;
             events.push(`upload:${path}`);
             if (uploadFails === true || uploadFails === path) throw new Error("Disk write failed");
             files.set(path, file.name.endsWith(".json") ? JSON.parse(await file.text()) : await file.text());
@@ -119,6 +133,10 @@ function setup({ uploadFails = false, directoryExists = true, generation = 14 } 
         }
       },
       Playlist: class {
+        static canUserCreate(user) {
+          return user.hasPermission("PLAYLIST_CREATE");
+        }
+
         static async create(data) {
           const playlist = new this(data);
           playlists.set(playlist.id, playlist);
@@ -154,6 +172,10 @@ function setup({ uploadFails = false, directoryExists = true, generation = 14 } 
           return structuredClone(this._source);
         }
 
+        canUserModify(user) {
+          return user.isGM || this._source.ownership?.[user.id] === 3;
+        }
+
         async delete() {
           events.push(`rollback:${this.id}`);
           playlists.delete(this.id);
@@ -176,6 +198,7 @@ function setup({ uploadFails = false, directoryExists = true, generation = 14 } 
   state.folderOrder = [];
   state.playbackByWorld = {};
   state.revision = 0;
+  state.indexCache = null;
   state.queue = Promise.resolve();
   state.ready = true;
   state.stale = false;
@@ -206,7 +229,7 @@ function setup({ uploadFails = false, directoryExists = true, generation = 14 } 
       files.set(`rn-global-playlists/playback/${world}.json`, { schema: 1, world, playlists: playback });
     }
   };
-  return { folders, playlists, events, files, getDisk, setDisk };
+  return { folders, playlists, events, socketMessages, files, getDisk, setDisk };
 }
 
 function addLocalFolder(folders, events, id, parent = null) {
@@ -359,6 +382,17 @@ test("Foundry 13 keeps mixed-case playlist IDs when uploads lowercase filenames"
   );
 });
 
+test("Foundry 14 accepts upload hooks that lowercase filenames", async () => {
+  const { playlists, events, files } = setup({ generation: 14, lowercaseUploads: true });
+  const local = addLocalPlaylist(playlists, events, "MixedCaseID", null);
+
+  await moveBranchToGlobal(local, null, false);
+
+  assert.equal(files.get("rn-global-playlists/playlists/mixedcaseid.json")._id, "MixedCaseID");
+  assert.deepEqual(files.get("rn-global-playlists/index.json").playlists, ["MixedCaseID"]);
+  assert.equal((await readStore()).playlists[0]._id, "MixedCaseID");
+});
+
 test("Foundry 13 context entries use names, HTML icons, conditions and callbacks", () => {
   setup({ generation: 13 });
   const options = [{ name: "SIDEBAR.Delete", icon: '<i class="fa-solid fa-trash"></i>' }];
@@ -404,7 +438,7 @@ test("a changed disk revision rejects a stale write before uploading", async () 
   const { events, getDisk, setDisk } = setup();
   setDisk({ ...getDisk(), revision: 1, playlists: [{ _id: "someone-else", name: "Other", sounds: [] }] });
 
-  await assert.rejects(persist([{ _id: "ours", name: "Ours", sounds: [] }]), /changed in another GM client/);
+  await assert.rejects(persist([{ _id: "ours", name: "Ours", sounds: [] }]), /changed in another client/);
 
   assert.deepEqual(
     getDisk().playlists.map((playlist) => playlist._id),
@@ -412,6 +446,163 @@ test("a changed disk revision rejects a stale write before uploading", async () 
   );
   assert.equal(state.revision, 0);
   assert.deepEqual(events, []);
+});
+
+test("the initial index and revision reads run together", async () => {
+  setup();
+  const held = holdFirstIndexRead();
+  const originalFetch = globalThis.fetch;
+  let revisionReads = 0;
+  globalThis.fetch = (url, options) => {
+    if (String(url).split("?")[0] === "rn-global-playlists/revision.json") revisionReads++;
+    return originalFetch(url, options);
+  };
+  const saving = persist([]);
+  await held.started;
+  assert.equal(revisionReads, 1);
+  held.release();
+  await saving;
+});
+
+test("a routine edit reuses the current index and checks the disk revision", async () => {
+  const { setDisk } = setup();
+  const playlist = { _id: "global", name: "Old", folder: null, sounds: [] };
+  setDisk({ revision: 0, folders: [], playlists: [playlist], playbackByWorld: {} });
+  await reloadGlobalPlaylists();
+  foundry.utils.mergeObject = Object.assign;
+  const originalFetch = globalThis.fetch;
+  const reads = [];
+  globalThis.fetch = (url, options) => {
+    reads.push(String(url).split("?")[0]);
+    return originalFetch(url, options);
+  };
+  await updateGlobal(game.playlists.get("global"), { name: "Updated" });
+  assert.equal(reads.filter((path) => path.endsWith("/index.json")).length, 0);
+  assert.equal(reads.filter((path) => path.endsWith("/revision.json")).length, 2);
+});
+
+test("revision checks can be disabled and restored without reloading the world", async () => {
+  const { events, files, setDisk, socketMessages } = setup();
+  const playlist = { _id: "global", name: "Old", folder: null, sounds: [] };
+  setDisk({
+    revision: 0,
+    folders: [],
+    playlists: [playlist],
+    playbackByWorld: { "world-a": { global: { playing: false, sounds: {} } } },
+  });
+  let disabled = true;
+  game.settings.get = (_module, key) => (key === "disableRevisionChecks" ? disabled : { folders: [], playlists: [] });
+  await reloadGlobalPlaylists();
+  foundry.utils.mergeObject = Object.assign;
+
+  await updateGlobal(game.playlists.get("global"), { name: "Fast" });
+  assert.equal(files.get("rn-global-playlists/revision.json").revision, 0);
+  assert.equal(events.filter((event) => event.endsWith("revision.json")).length, 0);
+  assert.equal(socketMessages.at(-1).type, "patch");
+  assert.equal("revision" in socketMessages.at(-1), false);
+
+  disabled = false;
+  await updateGlobal(game.playlists.get("global"), { name: "Checked" });
+  assert.equal(files.get("rn-global-playlists/revision.json").revision, 1);
+  assert.equal(socketMessages.at(-1).revision, 1);
+});
+
+test("a remote edit invalidates the cached index before the next save", async () => {
+  const { setDisk } = setup();
+  const playlist = { _id: "global", name: "Old", folder: null, sounds: [] };
+  setDisk({ revision: 0, folders: [], playlists: [playlist], playbackByWorld: {} });
+  await reloadGlobalPlaylists();
+  const changed = { ...playlist, name: "Remote" };
+  setDisk({ revision: 1, folders: [], playlists: [changed], playbackByWorld: {} });
+  onSocket({ sender: "other-gm", type: "upsert", revision: 1, payload: changed });
+  const originalFetch = globalThis.fetch;
+  let indexReads = 0;
+  globalThis.fetch = (url, options) => {
+    if (String(url).split("?")[0] === "rn-global-playlists/index.json") indexReads++;
+    return originalFetch(url, options);
+  };
+  await persist(serialize());
+  assert.equal(indexReads, 1);
+});
+
+for (const generation of [13, 14]) {
+  test(`a playlist owner with world permission can save a global Sound in Foundry ${generation}`, async () => {
+    const { events, getDisk, setDisk } = setup({ generation });
+    const item = {
+      _id: "owned",
+      name: "Owned",
+      ownership: { default: 0, player: 3 },
+      sounds: [{ _id: "sound", path: "audio/example.ogg", volume: 0.5 }],
+    };
+    setDisk({ revision: 0, folders: [], playlists: [storedData(item)], playbackByWorld: {} });
+    installInClient(item);
+    game.user = {
+      id: "player",
+      isGM: false,
+      hasPermission: (permission) => ["PLAYLIST_CREATE", "FILES_UPLOAD"].includes(permission),
+    };
+
+    await persist([storedData({ ...item, sounds: [{ ...item.sounds[0], volume: 0.7 }] })]);
+
+    assert.equal(getDisk().playlists[0].sounds[0].volume, 0.7);
+    assert.ok(events.includes("upload:rn-global-playlists/playlists/owned.json"));
+  });
+
+  test(`a playlist owner can start a global Sound in Foundry ${generation}`, async () => {
+    const { getDisk, setDisk } = setup({ generation });
+    const item = {
+      _id: "owned",
+      name: "Owned",
+      ownership: { default: 0, player: 3 },
+      sounds: [{ _id: "sound", path: "audio/example.ogg" }],
+    };
+    setDisk({ revision: 0, folders: [], playlists: [storedData(item)], playbackByWorld: {} });
+    installInClient(item);
+    game.user = {
+      id: "player",
+      isGM: false,
+      hasPermission: (permission) => ["PLAYLIST_CREATE", "FILES_UPLOAD"].includes(permission),
+    };
+
+    await persist(serialize(), {
+      "world-a": { owned: { playing: true, sounds: { sound: { playing: true, pausedTime: null } } } },
+    });
+
+    assert.equal(getDisk().playbackByWorld["world-a"].owned.sounds.sound.playing, true);
+  });
+}
+
+test("a player without file upload permission gets a clear error before writing", async () => {
+  const { events, setDisk } = setup();
+  const item = { _id: "owned", name: "Owned", ownership: { default: 0, player: 3 }, sounds: [] };
+  setDisk({ revision: 0, folders: [], playlists: [storedData(item)], playbackByWorld: {} });
+  installInClient(item);
+  game.user = { id: "player", isGM: false, hasPermission: (permission) => permission === "PLAYLIST_CREATE" };
+
+  await assert.rejects(persist([storedData({ ...item, name: "Changed" })]), /permission to upload files/i);
+  assert.ok(!events.some((event) => event.startsWith("upload:")));
+});
+
+test("a player cannot save someone else's global playlist or change its ownership", async () => {
+  const { events, setDisk } = setup();
+  const item = {
+    _id: "owned",
+    name: "Owned",
+    ownership: { default: 0, player: 3 },
+    sounds: [{ _id: "sound", path: "audio/example.ogg" }],
+  };
+  setDisk({ revision: 0, folders: [], playlists: [storedData(item)], playbackByWorld: {} });
+  installInClient(item);
+  game.user = { id: "other", isGM: false, hasPermission: () => true };
+  await assert.rejects(persist([storedData({ ...item, name: "Changed" })]), /playlist management permission/);
+  game.user = { id: "player", isGM: false, hasPermission: () => false };
+  await assert.rejects(persist([storedData({ ...item, name: "Changed" })]), /playlist management permission/);
+  game.user = { id: "player", isGM: false, hasPermission: () => true };
+  await assert.rejects(
+    persist([storedData({ ...item, ownership: { ...item.ownership, other: 3 } })]),
+    /playlist management permission/,
+  );
+  assert.ok(!events.some((event) => event.startsWith("upload:")));
 });
 
 test("changing one sound among 200 playlists writes only its playlist file and the revision", async () => {
@@ -644,7 +835,7 @@ test("failed revision commit restores an edited playlist file", async () => {
   ]);
 });
 
-test("removing a playlist clears playback in other worlds", async () => {
+test("removing a playlist leaves other worlds for lazy playback cleanup", async () => {
   const { files, playlists, events, setDisk } = setup();
   const item = { _id: "global", name: "Global", folder: null, sounds: [] };
   setDisk({
@@ -663,13 +854,53 @@ test("removing a playlist clears playback in other worlds", async () => {
 
   await persist([], { "world-a": {} });
 
-  assert.deepEqual(files.get("rn-global-playlists/playback/world-b.json").playlists, {});
+  assert.deepEqual(files.get("rn-global-playlists/playback/world-b.json").playlists, {
+    global: { playing: true, sounds: {} },
+  });
   assert.deepEqual(files.get("rn-global-playlists/index.json").playlists, []);
-  assert.ok(events.includes("upload:rn-global-playlists/playback/world-b.json"));
+  assert.ok(!events.includes("upload:rn-global-playlists/playback/world-b.json"));
+});
+
+test("loading a world removes missing playlists and Sounds from its playback file", async () => {
+  const { events, files, setDisk } = setup();
+  const playlist = {
+    _id: "global",
+    name: "Global",
+    folder: null,
+    sounds: [{ _id: "present", name: "Present" }],
+  };
+  setDisk({
+    revision: 0,
+    folders: [],
+    playlists: [playlist],
+    playbackByWorld: {
+      "world-a": {
+        global: {
+          playing: true,
+          sounds: {
+            present: { playing: false, pausedTime: null },
+            missing: { playing: true, pausedTime: 2 },
+          },
+        },
+        removed: { playing: true, sounds: {} },
+      },
+    },
+  });
+
+  const loaded = await readStore();
+
+  assert.deepEqual(loaded.playbackByWorld["world-a"], {
+    global: {
+      playing: false,
+      sounds: { present: { playing: false, pausedTime: null } },
+    },
+  });
+  assert.deepEqual(files.get("rn-global-playlists/playback/world-a.json").playlists, loaded.playbackByWorld["world-a"]);
+  assert.ok(events.includes("upload:rn-global-playlists/playback/world-a.json"));
 });
 
 test("deleting a global playlist archives its last data before removing it from the active index", async () => {
-  const { files, playlists, setDisk } = setup();
+  const { files, playlists, socketMessages, setDisk } = setup();
   const item = {
     _id: "global",
     name: "Tavern",
@@ -682,6 +913,11 @@ test("deleting a global playlist archives its last data before removing it from 
   state.playlists.set(item._id, document);
 
   await removeGlobal(item._id);
+  assert.deepEqual(
+    socketMessages.map((message) => message.type),
+    ["remove"],
+  );
+  assert.equal(socketMessages[0].revision, 1);
 
   const archive = await readArchive();
   assert.equal(archive.entries.length, 1);
@@ -1273,6 +1509,233 @@ test("global playlist refreshes scene sound without preparing scene tiles again"
   assert.equal(scene.playlistSound, null);
 });
 
+test("toggling Repeat on a global Sound preserves the playing audio object", () => {
+  setup();
+  const data = { _id: "global", sounds: [{ _id: "sound", repeat: false }] };
+  installInClient(data);
+  const playlist = game.playlists.get("global");
+  const sound = playlist.sounds.get("sound");
+  const audio = {
+    playing: true,
+    currentTime: 42,
+    stop() {
+      throw new Error("Audio must not restart");
+    },
+  };
+  sound.sound = audio;
+  let synchronizations = 0;
+  sound.sync = () => synchronizations++;
+
+  installInClient({ ...data, sounds: [{ _id: "sound", repeat: true }] });
+
+  assert.equal(game.playlists.get("global"), playlist);
+  assert.equal(playlist.sounds.get("sound"), sound);
+  assert.equal(sound.sound, audio);
+  assert.equal(audio.currentTime, 42);
+  assert.equal(sound.repeat, true);
+  assert.equal(synchronizations, 1);
+});
+
+test("safe global metadata updates preserve the current audio object", () => {
+  setup();
+  const data = {
+    _id: "global",
+    name: "Before",
+    mode: 0,
+    sorting: "m",
+    fade: 100,
+    playing: true,
+    sounds: [{ _id: "sound", name: "Before", fade: 100, playing: true, flags: {} }],
+  };
+  installInClient(data);
+  const playlist = game.playlists.get("global");
+  const sound = playlist.sounds.get("sound");
+  const audio = { playing: true, currentTime: 42, stop: () => assert.fail("Safe edit stopped the audio") };
+  sound.sound = audio;
+
+  installInClient({
+    ...data,
+    name: "After",
+    mode: 1,
+    sorting: "a",
+    fade: 200,
+    sounds: [
+      { _id: "sound", name: "After", fade: 200, playing: true, flags: { "rn-playlist-companion": { threshold: -40 } } },
+    ],
+  });
+
+  assert.equal(game.playlists.get("global"), playlist);
+  assert.equal(playlist.sounds.get("sound"), sound);
+  assert.equal(sound.sound, audio);
+  assert.equal(playlist.name, "After");
+  assert.equal(sound.name, "After");
+  assert.equal(sound.flags["rn-playlist-companion"].threshold, -40);
+});
+
+test("stopping one edited global Sound does not restart another playing Sound", () => {
+  setup();
+  const data = {
+    _id: "global",
+    playing: true,
+    sounds: [
+      { _id: "edited", name: "Before", playing: true },
+      { _id: "other", name: "Other", playing: true },
+    ],
+  };
+  installInClient(data);
+  const playlist = game.playlists.get("global");
+  const other = playlist.sounds.get("other");
+  other.sound = { playing: true, currentTime: 42, stop: () => assert.fail("Other sound was stopped") };
+
+  installInClient({
+    ...data,
+    sounds: [{ _id: "edited", name: "After", playing: false }, data.sounds[1]],
+  });
+
+  assert.equal(game.playlists.get("global"), playlist);
+  assert.equal(playlist.sounds.get("other"), other);
+  assert.equal(other.sound.currentTime, 42);
+  assert.equal(playlist.sounds.get("edited").playing, false);
+});
+
+test("changing a global Sound's live volume preserves playback on another client", () => {
+  setup();
+  const data = { _id: "global", playing: true, sounds: [{ _id: "sound", playing: true, volume: 0.5 }] };
+  installInClient(data);
+  const playlist = game.playlists.get("global");
+  const sound = playlist.sounds.get("sound");
+  const audio = {
+    playing: true,
+    currentTime: 42,
+    stop: () => assert.fail("Volume change must not stop playback"),
+  };
+  sound.sound = audio;
+  let synchronizations = 0;
+  sound.sync = () => synchronizations++;
+
+  installInClient({ ...data, sounds: [{ _id: "sound", playing: true, volume: 0.7 }] });
+
+  assert.equal(game.playlists.get("global"), playlist);
+  assert.equal(playlist.sounds.get("sound"), sound);
+  assert.equal(sound.sound, audio);
+  assert.equal(audio.currentTime, 42);
+  assert.equal(sound.volume, 0.7);
+  assert.equal(synchronizations, 1);
+});
+
+test("saving a volume already applied by Foundry's slider does not restart the GM's audio", () => {
+  setup();
+  const data = { _id: "global", playing: true, sounds: [{ _id: "sound", playing: true, volume: 0.5 }] };
+  installInClient(data);
+  const playlist = game.playlists.get("global");
+  const sound = playlist.sounds.get("sound");
+  const audio = { stop: () => assert.fail("Saving slider volume must not stop playback") };
+  sound.sound = audio;
+  sound.updateSource({ volume: 0.7 });
+
+  installInClient({ ...data, sounds: [{ _id: "sound", playing: true, volume: 0.7 }] });
+
+  assert.equal(game.playlists.get("global"), playlist);
+  assert.equal(sound.sound, audio);
+});
+
+test("pausing a global Sound preserves its document and audio object", () => {
+  setup();
+  const data = { _id: "global", playing: true, sounds: [{ _id: "sound", playing: true, pausedTime: null }] };
+  installInClient(data);
+  const playlist = game.playlists.get("global");
+  const sound = playlist.sounds.get("sound");
+  const audio = { stop: () => assert.fail("Pausing must not stop or replace the audio object") };
+  sound.sound = audio;
+  let synchronizations = 0;
+  sound.sync = () => synchronizations++;
+
+  installInClient({ ...data, sounds: [{ _id: "sound", playing: false, pausedTime: 12.5 }] });
+
+  assert.equal(game.playlists.get("global"), playlist);
+  assert.equal(playlist.sounds.get("sound"), sound);
+  assert.equal(sound.sound, audio);
+  assert.equal(sound.playing, false);
+  assert.equal(sound.pausedTime, 12.5);
+  assert.equal(synchronizations, 1);
+});
+
+test("a remote playback update waits for the player's audio unlock", async () => {
+  setup();
+  let unlock;
+  game.audio.locked = true;
+  game.audio.unlock = new Promise((resolve) => {
+    unlock = resolve;
+  });
+  const data = { _id: "global", playing: false, sounds: [{ _id: "sound", playing: false }] };
+  installInClient(data);
+  const playlist = game.playlists.get("global");
+  const sound = playlist.sounds.get("sound");
+  let synchronizations = 0;
+  sound.sync = () => synchronizations++;
+  installInClient({ ...data, playing: true, sounds: [{ _id: "sound", playing: true }] });
+  assert.equal(synchronizations, 0);
+  game.audio.locked = false;
+  unlock();
+  await game.audio.unlock;
+  assert.equal(synchronizations, 1);
+  assert.equal(playlist.playing, true);
+  assert.equal(sound.playing, true);
+});
+
+test("a playing global Sound keeps its Playlist active for sequencing and player visibility", () => {
+  setup();
+  foundry.utils.mergeObject = (target, source) => Object.assign(target, source);
+  const data = { _id: "global", playing: false, sounds: [{ _id: "sound", playing: true }] };
+  const updated = applyChanges(data, { sounds: [{ _id: "sound", playing: true }] });
+  assert.equal(updated.playing, true);
+  installInClient(data);
+  assert.equal(game.playlists.get("global").toObject().playing, true);
+});
+
+test("global live update derives Playlist.playing after updating its Sounds", () => {
+  setup();
+  const data = { _id: "global", playing: false, sounds: [{ _id: "sound", playing: false }] };
+  installInClient(data);
+  const playlist = game.playlists.get("global");
+  const originalUpdateSource = playlist.updateSource.bind(playlist);
+  playlist.updateSource = (changes) => {
+    originalUpdateSource(changes);
+    playlist.playing = playlist.sounds.some((sound) => sound.playing);
+  };
+  const sound = playlist.sounds.get("sound");
+  sound.playing = false;
+  installInClient({ ...data, playing: true, sounds: [{ _id: "sound", playing: true }] });
+  assert.equal(sound.playing, true);
+  assert.equal(playlist.playing, true);
+});
+
+test("global live update repairs a stale derived playing flag even when source already matches", () => {
+  setup();
+  const data = { _id: "global", playing: true, sounds: [{ _id: "sound", playing: true }] };
+  installInClient(data);
+  const playlist = game.playlists.get("global");
+  playlist.playing = false;
+  playlist.sounds.get("sound").playing = true;
+  playlist.prepareDerivedData = () => {
+    playlist.playing = playlist.sounds.some((sound) => sound.playing);
+  };
+  playlist.updateSource = () => ({}); // Foundry skips _initialize when the source diff is empty.
+  installInClient(data);
+  assert.equal(playlist.playing, true);
+});
+
+test("a global sequential replay honors Foundry's forceSync option", () => {
+  setup();
+  const data = { _id: "global", playing: true, sounds: [{ _id: "sound", playing: true }] };
+  installInClient(data);
+  const sound = game.playlists.get("global").sounds.get("sound");
+  let synchronizations = 0;
+  sound.sync = () => synchronizations++;
+  installInClient(data, { forceSync: true });
+  assert.equal(synchronizations, 1);
+});
+
 test("reloads arriving during initial loading share one follow-up read", async () => {
   const { setDisk } = setup();
   state.ready = false;
@@ -1296,6 +1759,140 @@ test("reloads arriving during initial loading share one follow-up read", async (
   assert.equal(state.playlists.get("latest")?.toObject().name, "Latest");
   assert.equal(state.revision, 1);
   assert.equal(state.ready, true);
+});
+
+test("a GM reloads after a player changes a global playlist", async () => {
+  const { setDisk } = setup();
+  const old = { _id: "global", name: "Old", folder: null, sounds: [] };
+  setDisk({ revision: 0, folders: [], playlists: [old], playbackByWorld: {} });
+  installInClient(old);
+  setDisk({ revision: 1, folders: [], playlists: [{ ...old, name: "Updated" }], playbackByWorld: {} });
+  const applied = new Promise((resolve) => {
+    const unsubscribe = onGlobalDataApplied(() => {
+      unsubscribe();
+      resolve();
+    });
+  });
+
+  onSocket({ sender: "player", type: "revision", payload: { revision: 1 } });
+  assert.equal(state.stale, true);
+  await applied;
+
+  assert.equal(state.stale, false);
+  assert.equal(state.revision, 1);
+  assert.equal(state.playlists.get("global").toObject().name, "Updated");
+  await persist(serialize());
+});
+
+test("an ordinary global edit reaches another client without a full store read", async () => {
+  const sender = setup();
+  const old = { _id: "global", name: "Old", folder: null, sounds: [] };
+  sender.setDisk({ revision: 0, folders: [], playlists: [old], playbackByWorld: {} });
+  installInClient(old);
+  foundry.utils.mergeObject = Object.assign;
+  await updateGlobal(game.playlists.get("global"), { name: "Updated" });
+  const message = sender.socketMessages.find((entry) => entry.type === "patch");
+  assert.equal(message.revision, 1);
+  assert.deepEqual(message.payload, {
+    id: "global",
+    changes: { name: "Updated" },
+  });
+  assert.equal(
+    sender.socketMessages.some((entry) => entry.type === "revision"),
+    false,
+  );
+
+  const receiver = setup();
+  receiver.setDisk({ revision: 1, folders: [], playlists: [{ ...old, name: "Updated" }], playbackByWorld: {} });
+  installInClient(old);
+  foundry.utils.mergeObject = Object.assign;
+  game.user = { id: "other-gm", isGM: true };
+  const originalFetch = globalThis.fetch;
+  let reads = 0;
+  globalThis.fetch = (...args) => {
+    reads++;
+    return originalFetch(...args);
+  };
+  onSocket(message);
+  assert.equal(reads, 0);
+  assert.equal(state.playlists.get("global").toObject().name, "Updated");
+  assert.equal(state.revision, 1);
+  assert.equal(state.playbackByWorld[game.world.id].global.playing, false);
+});
+
+test("socket patches merge independent Sound fields without restoring stale playback", () => {
+  setup();
+  foundry.utils.mergeObject = Object.assign;
+  const playlist = {
+    _id: "global",
+    name: "Global",
+    folder: null,
+    sounds: [{ _id: "sound", repeat: false, volume: 0.5, playing: false, pausedTime: null }],
+  };
+  installInClient(playlist);
+
+  onSocket({
+    sender: "first-user",
+    type: "patch",
+    revision: 1,
+    payload: {
+      id: "global",
+      changes: { sounds: [{ _id: "sound", playing: true }] },
+    },
+  });
+  onSocket({
+    sender: "second-user",
+    type: "patch",
+    revision: 2,
+    payload: {
+      id: "global",
+      changes: { sounds: [{ _id: "sound", repeat: true }] },
+    },
+  });
+
+  const sound = state.playlists.get("global").sounds.get("sound");
+  assert.equal(sound.repeat, true);
+  assert.equal(sound.playing, true);
+  assert.equal(sound.volume, 0.5);
+  assert.equal(state.playbackByWorld[game.world.id].global.playing, true);
+});
+
+test("versioned creation and removal update another client without a full store read", () => {
+  setup();
+  const originalFetch = globalThis.fetch;
+  let reads = 0;
+  globalThis.fetch = (...args) => {
+    reads++;
+    return originalFetch(...args);
+  };
+  const playlist = { _id: "new", name: "New", folder: null, sounds: [] };
+  onSocket({ sender: "other-gm", type: "upsert", revision: 1, payload: playlist });
+  assert.equal(state.playlists.has("new"), true);
+  assert.deepEqual(state.playlistOrder, ["new"]);
+  onSocket({ sender: "other-gm", type: "remove", revision: 2, payload: { id: "new" } });
+  assert.equal(state.playlists.has("new"), false);
+  assert.deepEqual(state.playlistOrder, []);
+  assert.equal(state.revision, 2);
+  assert.equal(reads, 0);
+});
+
+test("a missed global revision still reloads the store", async () => {
+  const { setDisk } = setup();
+  const old = { _id: "global", name: "Old", folder: null, sounds: [] };
+  const latest = { ...old, name: "Latest" };
+  setDisk({ revision: 2, folders: [], playlists: [latest], playbackByWorld: {} });
+  installInClient(old);
+  const applied = new Promise((resolve) => {
+    const unsubscribe = onGlobalDataApplied(() => {
+      unsubscribe();
+      resolve();
+    });
+  });
+  onSocket({ sender: "other-gm", type: "upsert", revision: 2, payload: latest });
+  await applied;
+  assert.equal(state.playlists.get("global").name, "Latest");
+  assert.equal(state.revision, 2);
+  assert.equal(state.stale, false);
 });
 
 test("a remote removal during a read cannot restore the removed playlist", async () => {

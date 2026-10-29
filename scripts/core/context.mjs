@@ -16,6 +16,7 @@ export const state = {
   folderOrder: [],
   playbackByWorld: {},
   revision: 0,
+  indexCache: null,
   queue: Promise.resolve(),
   suspendRefresh: false,
   ready: false,
@@ -47,6 +48,6 @@ export function isGlobalFolder(folder) {
   return folder?.documentName === "Folder" && state.folders.has(folder.id);
 }
 
-export function publish(type, payload) {
-  game.socket.emit(`module.${MODULE_ID}`, { type, payload, sender: game.user.id });
+export function publish(type, payload, extra = {}) {
+  game.socket.emit(`module.${MODULE_ID}`, { type, payload, sender: game.user.id, ...extra });
 }

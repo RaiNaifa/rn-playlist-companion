@@ -1,3 +1,4 @@
+import { readBounds } from "../audio/bounds.mjs";
 import {
   activePreview,
   onPreviewChange,
@@ -16,10 +17,11 @@ let previewTimer;
 
 function updatePreviewTime() {
   const sound = previewSound();
+  const bounds = readBounds(previewPlaylistSound(), sound?.buffer?.duration ?? sound?.element?.duration);
   const format = foundry.applications.sidebar.tabs.PlaylistDirectory.formatTimestamp;
   for (const row of document.querySelectorAll(".playlists-sidebar .rn-preview-playing")) {
-    row.querySelector(".current").textContent = format(sound?.currentTime ?? 0);
-    row.querySelector(".duration").textContent = format(sound?.duration ?? 0);
+    row.querySelector(".current").textContent = format(Math.max(0, (sound?.currentTime ?? 0) - (bounds?.start ?? 0)));
+    row.querySelector(".duration").textContent = format(bounds ? bounds.end - bounds.start : (sound?.duration ?? 0));
   }
 }
 
@@ -58,6 +60,7 @@ function addPreviewButton(controls, playlistSound) {
   button.type = "button";
   button.className = "inline-control sound-control icon fa-solid fa-headphones rn-preview";
   button.dataset.soundUuid = playlistSound.uuid;
+  button.disabled = !playlistSound.isOwner && activePreview() !== playlistSound.uuid;
   button.setAttribute("data-tooltip", "");
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -116,7 +119,6 @@ export function syncPreviewWidget(element) {
   );
   if (!playlistSound.isOwner) play.disabled = true;
   controls.append(play);
-  addPreviewButton(controls, playlistSound);
   header.append(icon, name, controls);
   const playback = document.createElement("div");
   playback.className = "sound-playback flexrow";
@@ -150,9 +152,14 @@ function updatePreviewButtons() {
 }
 
 export function decorateSounds(element) {
-  for (const row of element.querySelectorAll(
-    ".directory-list .sound[data-playlist-id][data-sound-id], .currently-playing .sound[data-playlist-id][data-sound-id]",
-  )) {
+  for (const button of element.querySelectorAll(".currently-playing .rn-preview")) button.remove();
+  for (const row of element.querySelectorAll(".currently-playing .sound[data-playlist-id][data-sound-id]")) {
+    if (row.dataset.soundUuid !== activePreview()) continue;
+    const controls = row.querySelector(":scope > header > .sound-controls");
+    const playlistSound = game.playlists.get(row.dataset.playlistId)?.sounds.get(row.dataset.soundId);
+    if (controls && playlistSound) addPreviewButton(controls, playlistSound);
+  }
+  for (const row of element.querySelectorAll(".directory-list .sound[data-playlist-id][data-sound-id]")) {
     const controls = row.querySelector(":scope > header > .sound-controls");
     if (!controls) continue;
     const playlistSound = game.playlists.get(row.dataset.playlistId)?.sounds.get(row.dataset.soundId);

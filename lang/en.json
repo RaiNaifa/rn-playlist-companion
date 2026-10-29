@@ -1,11 +1,47 @@
 {
   "RNPLAYCOMP": {
+    "Bounds": {
+      "Title": "Silence Boundaries",
+      "ChooseSection": "Choose playable section",
+      "Start": "Start",
+      "End": "End",
+      "Seconds": "seconds",
+      "Duration": "File duration",
+      "Threshold": "Silence threshold",
+      "ModuleDefault": "Module setting: {value} dBFS",
+      "ThresholdSetting": "Default silence threshold (dBFS)",
+      "ThresholdSettingHint": "“Find silence” uses this threshold unless the Sound has its own saved value.\nLower values detect quieter sounds. Higher values ignore faint noise.\nDefault: −60 dBFS.",
+      "ThresholdHint": "Lower values detect quieter sounds. Higher values ignore faint noise.",
+      "Analyze": "Find silence",
+      "Reset": "Reset bounds",
+      "ResetPending": "The full file is selected. Save the Sound to reset its boundaries.",
+      "Loading": "Loading audio file…",
+      "Decoding": "Decoding and analyzing audio…",
+      "Proposed": "Suggested section: {start}–{end} s. Save the Sound to apply these boundaries.",
+      "AllSilent": "No audible section was found at this threshold. Boundaries were not changed.",
+      "Unsupported": "This file format is not supported by silence search.",
+      "Failed": "Could not analyze audio: {reason}. You can still enter boundaries manually.",
+      "InvalidBounds": "Enter valid boundaries: 0 ≤ start < end ≤ file duration.",
+      "InvalidThreshold": "Enter a number from −120 to 0 dBFS.",
+      "InvalidPlayback": "Saved boundaries for {name} are invalid or refer to another file. Playing the full file.",
+      "Stale": "The analyzed file path has changed. Check these boundaries again.",
+      "PathChanged": "The file path changed. Analyze again or check the boundaries manually.",
+      "OldThreshold": "These boundaries were analyzed with a different threshold."
+    },
     "ReleaseNotes": {
       "Title": "RN Playlist Companion - Changelog",
       "Close": "Close",
       "Suppress": "Don't show again"
     },
     "Settings": {
+      "DisableRevisionChecks": {
+        "Name": "Disable revision checks",
+        "Hint": "Enable only when global playlists are managed from one client.\nSpeeds up global playlist operations by skipping additional file checks. If several clients manage playlists at the same time, their changes may overwrite each other. A technical failure during a multi-file operation may save only part of the changes."
+      },
+      "KeepPlayingOnConfigSave": {
+        "Name": "Preserve playback",
+        "Hint": "When enabled, “Update Sound” and “Update Playlist” do not stop playback if nothing changed or if only these properties changed: name, volume, repeat, fade duration, silence threshold (dBFS), description, playback mode, and playlist sorting."
+      },
       "MaxBufferDuration": {
         "Name": "Buffering threshold (seconds)",
         "Hint": "Sounds whose duration exceeds this threshold are streamed instead of buffered. Changes apply to future loads. Already loaded or cached sounds keep their playback type until the client reconnects.\nFoundry's default is 600 seconds."
@@ -171,8 +207,9 @@
       "PrivateFailed": "Could not mark {directory} private in the File Picker.",
       "UploadFailed": "Foundry did not overwrite {path}. Returned: {result}.",
       "GMOnlyEdit": "Only a GM can edit global playlists.",
-      "Stale": "Another GM changed global data. Reload this world before editing.",
-      "RevisionMismatch": "Global playlist data changed in another GM client. Reload before editing.",
+      "PlaylistPermissionDenied": "You need playlist management permission and ownership of this playlist.",
+      "GlobalFileUploadPermissionDenied": "Editing global playlists also requires the Foundry world permission to upload files. The module uses it to save playlist data as JSON.",
+      "GlobalDataChanged": "Global playlist data changed in another client. Wait for it to reload before editing.",
       "MixedFolders": "A global item cannot be inside a local folder.",
       "FolderCollision": "Folder ID collision: {id}.",
       "GMOnlyCreatePlaylist": "Only a GM can create a global playlist.",

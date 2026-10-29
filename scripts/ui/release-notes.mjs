@@ -43,10 +43,19 @@ export async function showReleaseNotesAfterUpdate() {
     const checkbox = 'input[name="suppressReleaseNotes"]';
     const isSuppressed = (root) => Boolean(root?.querySelector(checkbox)?.checked);
     let suppressOnClose = false;
+    const renderItems = (items) => {
+      if (Array.isArray(items)) return `<ul>${items.map((item) => `<li>${html(item)}</li>`).join("")}</ul>`;
+      return Object.entries(items)
+        .map(
+          ([heading, section]) =>
+            `<section class="rn-release-note-section"><h4>${html(heading)}</h4><ul>${section.map((item) => `<li>${html(item)}</li>`).join("")}</ul></section>`,
+        )
+        .join("");
+    };
     const entries = notes
       .map(
         ([version, items]) =>
-          `<section class="rn-release-note"><h3>${html(version)}</h3><ul>${items.map((item) => `<li>${html(item)}</li>`).join("")}</ul></section>`,
+          `<section class="rn-release-note"><h3>${html(version)}</h3>${renderItems(items)}</section>`,
       )
       .join("");
     const content = `<div class="rn-release-notes">${entries}</div><label class="rn-release-notes-optout"><input type="checkbox" name="suppressReleaseNotes"> ${t("ReleaseNotes.Suppress")}</label>`;

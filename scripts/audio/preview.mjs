@@ -1,4 +1,5 @@
 import { MODULE_ID, t } from "../core/context.mjs";
+import { readBounds } from "./bounds.mjs";
 
 const VOLUME_SETTING = "previewVolume";
 const DUCK_SETTING = "duckMusic";
@@ -94,7 +95,8 @@ export async function togglePreviewPause() {
 
 function scheduleEndFade(currentSound) {
   if (!fadeDuration || !Number.isFinite(currentSound.duration)) return;
-  const startAfter = Math.max(0, currentSound.duration - currentSound.currentTime - fadeDuration / 1000);
+  const end = readBounds(previewDocument, currentSound.duration)?.end ?? currentSound.duration;
+  const startAfter = Math.max(0, end - currentSound.currentTime - fadeDuration / 1000);
   currentSound.schedule(() => currentSound.fade(0, { duration: fadeDuration }), currentSound.currentTime + startAfter);
 }
 
@@ -193,15 +195,30 @@ export async function togglePreview(nextSound) {
     await next.load();
     if (request !== generation) return;
     const configuredFade = nextSound.fade ?? nextSound.parent?.fade ?? 0;
+    const bounds = readBounds(nextSound, next.duration);
     fadeDuration = Number.isFinite(next.duration)
-      ? Math.min(configuredFade, Math.ceil(next.duration / 2) * 1000)
+      ? Math.min(configuredFade, Math.ceil((bounds ? bounds.end - bounds.start : next.duration) / 2) * 1000)
       : configuredFade;
-    await next.play({ loop: false, volume: nextSound.volume ?? 1, fade: fadeDuration });
+    await next.play({
+      loop: false,
+      volume: nextSound.volume ?? 1,
+      fade: fadeDuration,
+      offset: bounds?.start,
+      duration: bounds && next.buffer ? bounds.end - bounds.start : undefined,
+    });
     if (request !== generation) {
       await next.stop();
       return;
     }
     scheduleEndFade(next);
+    if (bounds && next.element) {
+      const endPreview = () => {
+        if (next.element?.currentTime >= bounds.end && sound === next) stopPreview();
+      };
+      next.element.addEventListener("timeupdate", endPreview);
+      const interval = setInterval(endPreview, 25);
+      next.addEventListener("stop", () => clearInterval(interval), { once: true });
+    }
     applyDucking();
     notify();
   } catch (error) {

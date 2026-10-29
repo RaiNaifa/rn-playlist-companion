@@ -1,6 +1,19 @@
 import { stopPreviewForPlayback } from "../audio/preview.mjs";
 import { error, MODULE_ID, state } from "../core/context.mjs";
 
+const pendingUnlock = new WeakSet();
+
+function syncAfterUnlock(sound, playlist) {
+  if (pendingUnlock.has(sound)) return;
+  pendingUnlock.add(sound);
+  game.audio.unlock.then(() => {
+    pendingUnlock.delete(sound);
+    if (game.playlists.get(playlist.id) !== playlist) return;
+    sound.sync();
+    refresh();
+  });
+}
+
 export function refresh() {
   if (state.suspendRefresh) return;
   game.playlists.initializeTree();
@@ -37,36 +50,101 @@ export function removeFromClient(id) {
   refresh();
 }
 
-function withoutPositions({ sort, folder, sounds, ...playlist }) {
-  return { ...playlist, sounds: sounds?.map(({ sort, ...sound }) => sound) };
+function withoutLiveFields({ sort, folder, playing, sounds, name, description, mode, sorting, fade, ...playlist }) {
+  return playlist;
 }
 
-// Sorting must keep the current PlaylistSound objects: replacing them stops audio and restarts playback.
-function applyPositionChanges(playlist, data) {
-  if (JSON.stringify(withoutPositions(playlist.toObject())) !== JSON.stringify(withoutPositions(data))) return false;
+// Playback state and metadata can update existing Sounds without replacing their audio objects.
+function applyLiveChanges(playlist, data, { forceSync = false } = {}) {
+  const current = withoutLiveFields(playlist.toObject());
+  const incoming = withoutLiveFields(data);
+  if (JSON.stringify(current) !== JSON.stringify(incoming)) return false;
+  if (
+    Array.from(playlist.sounds).length !== data.sounds?.length ||
+    data.sounds.some((entry) => !playlist.sounds.get(entry._id))
+  ) {
+    return false;
+  }
   const playlistChanges = {};
   if ("sort" in data && playlist.sort !== data.sort) playlistChanges.sort = data.sort;
   if (playlist._source.folder !== data.folder) playlistChanges.folder = data.folder;
-  if (Object.keys(playlistChanges).length) playlist.updateSource(playlistChanges);
+  if ("playing" in data && playlist.playing !== data.playing) playlistChanges.playing = data.playing;
+  for (const key of ["name", "description", "mode", "sorting", "fade"]) {
+    if ((playlist._source ?? playlist)[key] !== data[key]) playlistChanges[key] = data[key];
+  }
   const changes = [];
   const changedSounds = [];
+  const soundsToSync = [];
   for (const entry of data.sounds ?? []) {
     const sound = playlist.sounds.get(entry._id);
-    if ("sort" in entry && sound.sort !== entry.sort) {
-      sound.updateSource({ sort: entry.sort });
-      changes.push({ _id: entry._id, sort: entry.sort });
+    const update = {};
+    if ("sort" in entry && sound.sort !== entry.sort) update.sort = entry.sort;
+    if ("repeat" in entry && sound.repeat !== entry.repeat) update.repeat = entry.repeat;
+    if ("volume" in entry && sound.volume !== entry.volume) update.volume = entry.volume;
+    if ("playing" in entry && sound.playing !== entry.playing) update.playing = entry.playing;
+    if ("pausedTime" in entry && sound.pausedTime !== entry.pausedTime) update.pausedTime = entry.pausedTime;
+    for (const key of ["name", "description", "fade"]) {
+      if ((sound._source ?? sound)[key] !== entry[key]) update[key] = entry[key];
+    }
+    if (sound.flags?.[MODULE_ID]?.threshold !== entry.flags?.[MODULE_ID]?.threshold) {
+      update.flags = { [MODULE_ID]: { threshold: entry.flags?.[MODULE_ID]?.threshold ?? null } };
+    }
+    for (const [key, value] of Object.entries(entry)) {
+      if (key === "_id" || (key !== "flags" && Object.hasOwn(update, key))) continue;
+      if (JSON.stringify((sound._source ?? sound)[key]) !== JSON.stringify(value)) update[key] = value;
+    }
+    if (Object.keys(update).length) {
+      sound.updateSource(update);
+      if ("path" in update || "channel" in update) sound._onUpdate?.(update, { render: false }, game.user.id);
+      changes.push({ _id: entry._id, ...update });
       changedSounds.push(sound);
+      if ("repeat" in update || "volume" in update || "playing" in update || "pausedTime" in update) {
+        soundsToSync.push(sound);
+      }
+    }
+  }
+  // Playlist.prepareDerivedData derives playing from its Sounds. Update them
+  // first or updateSource will immediately revert the playlist's playing flag.
+  if (Object.keys(playlistChanges).length || changedSounds.length) playlist.updateSource(playlistChanges);
+  if ("mode" in playlistChanges || "sorting" in playlistChanges) {
+    playlist._onUpdate?.(playlistChanges, { render: false }, game.user.id);
+  }
+  // updateSource skips preparation when the source value is already correct,
+  // even if the live derived value was left stale by an earlier update.
+  playlist.prepareDerivedData?.();
+  for (const sound of soundsToSync) {
+    if (game.audio.locked) syncAfterUnlock(sound, playlist);
+    else sound.sync();
+  }
+  if ("fade" in playlistChanges) {
+    for (const sound of playlist.sounds) {
+      if (sound.playing && !sound.repeat && sound.fade == null) sound._scheduleFadeOut?.();
+    }
+  }
+  for (const sound of changedSounds) {
+    if ("fade" in changes.find((change) => change._id === sound.id) && sound.playing && !sound.repeat) {
+      sound._scheduleFadeOut?.();
     }
   }
   if (changes.length) {
     playlist._onUpdateDescendantDocuments(playlist, "sounds", changedSounds, changes, { render: false }, game.user.id);
+  }
+  if (forceSync) {
+    for (const sound of playlist.sounds) {
+      if (!sound.playing || changedSounds.includes(sound)) continue;
+      if (game.audio.locked) syncAfterUnlock(sound, playlist);
+      else sound.sync();
+    }
   }
   refresh();
   return true;
 }
 
 // Expose global playlists to Foundry's normal UI and playback without storing them in the world database.
-export function installInClient(data) {
+export function installInClient(data, options = {}) {
+  // Foundry uses Playlist.playing both to advance sequential playback and to
+  // decide whether non-owners can see a playlist in the directory.
+  if (!data.playing && data.sounds?.some((sound) => sound.playing)) data = { ...data, playing: true };
   const id = data._id;
   stopPreviewForPlayback(id, data.sounds);
   const old = game.playlists.get(id);
@@ -74,7 +152,7 @@ export function installInClient(data) {
     console.error(`[${MODULE_ID}] ID collision with a world playlist: ${id}`);
     return false;
   }
-  if (old && applyPositionChanges(old, data)) return true;
+  if (old && applyLiveChanges(old, data, options)) return true;
   if (old) for (const sound of old.sounds) sound.sound?.stop();
   const playlist = new foundry.documents.Playlist(data);
   game.playlists.set(id, playlist);
@@ -85,10 +163,7 @@ export function installInClient(data) {
     if (scene._source.playlist === id) scene.playlistSound = playlist.sounds.get(scene._source.playlistSound) ?? null;
   }
   if (!game.audio.locked) for (const sound of playlist.sounds) sound.sync();
-  else
-    game.audio.unlock.then(() => {
-      if (state.playlists.get(id) === playlist) for (const sound of playlist.sounds) sound.sync();
-    });
+  else for (const sound of playlist.sounds) syncAfterUnlock(sound, playlist);
   refresh();
   return true;
 }

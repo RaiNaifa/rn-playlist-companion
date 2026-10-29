@@ -12,6 +12,7 @@ import {
   updateGlobal,
 } from "../library/global-library.mjs";
 import { persist, serialize, serializeFolders } from "../storage/global-store.mjs";
+import { revisionMessage } from "../storage/revision-control.mjs";
 import { installFolder, installInClient, removeFolder, removeFromClient } from "./client-collection.mjs";
 
 function reportRejection(promise) {
@@ -47,11 +48,11 @@ export function patchDocumentMethods() {
   Playlist.create = async function (data = {}, options = {}) {
     if (!isGlobalFolder(game.folders.get(data.folder))) return original.playlistCreate.call(this, data, options);
     try {
-      if (!game.user.isGM) throw error("GMOnlyCreatePlaylist");
+      if (!this.canUserCreate(game.user)) throw error("PlaylistPermissionDenied");
       const item = { ...data, _id: data._id ?? foundry.utils.randomID() };
-      await persist([...serialize(), storedData(item)]);
+      const saved = await persist([...serialize(), storedData(item)], null, null, null, { announceRevision: false });
       installInClient(item);
-      publish("reload");
+      publish("upsert", item, revisionMessage(saved));
       return state.playlists.get(item._id);
     } catch (cause) {
       throw reportError(cause);
