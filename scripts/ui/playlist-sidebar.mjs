@@ -5,6 +5,7 @@ import { filterHiddenTree, hiddenIds, isHidden, setHidden } from "../library/vis
 import { decorateDescriptions, registerDescriptionTooltipUpdates } from "./description-tooltip.mjs";
 import { decorateNames } from "./name-marquee.mjs";
 import { patchPlayingTimer } from "./playing-timer.mjs";
+import { decorateRestrictedPlaying, restrictedPlaylist } from "./player-privacy.mjs";
 import {
   decoratePreviewVolume,
   decorateSounds,
@@ -128,6 +129,7 @@ export function decorateDirectory(app) {
   const element = app.element;
   if (!element) return;
   syncPreviewWidget(element);
+  decorateRestrictedPlaying(element);
   mountSoundWindows(app, element, () => {
     decorateSounds(element);
     decorateSoundChannelIcons(element);
@@ -269,6 +271,16 @@ export function patchDirectory() {
       playingIds,
       showHidden: game.user.isGM && (uiState.showHidden || searchActive(this)),
     });
+    const removeRestricted = (node) => {
+      if (!node) return null;
+      const entries = node.entries.filter((entry) => {
+        const playlist = game.playlists.get(entry.id);
+        return !playlist || !restrictedPlaylist(playlist);
+      });
+      const children = node.children.map(removeRestricted).filter(Boolean);
+      return entries.length || children.length || !node.folder ? { ...node, entries, children } : null;
+    };
+    context.tree = removeRestricted(context.tree);
   };
   const original = Directory.prototype._onDrop;
   Directory.prototype._onDrop = async function (event) {

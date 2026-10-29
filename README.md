@@ -77,6 +77,7 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 
 #### Special Settings
 
+- **Hide sound names from players** shows players only the time and volume for sounds in **Currently Playing**, hiding all other details. A player with at least **Observer** access to a playlist can still see the details of its sounds and the playlist. The setting is disabled by default.
 - **Preserve Playback** keeps playback running when **Update Sound** or **Update Playlist** is used without changes or after changing only the name, volume, repeat state, fade duration, silence threshold, description, playback mode, or playlist sorting. Changes to the audio source, audio channel, or properties added by other modules still stop playback. The setting is disabled by default.
 - **Disable Revision Checks** speeds up global playlist operations by skipping additional file checks. Enable it only when global playlists are managed from one client and starting their playback has a noticeable delay. If several clients manage them at the same time, their changes may overwrite each other. A technical failure during a multi-file operation may save only part of the changes. The setting is disabled by default.
 
@@ -149,6 +150,7 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 
 #### Особые настройки
 
+- **Скрывать имена звуков от игроков** показывает игрокам только время и громкость для звуков в **Сейчас играет**, скрывая остальные детали. Игрок с доступом к плейлисту хотя бы на уровне **Наблюдатель** всё ещё может видеть детали его звуков и самого плейлиста. По умолчанию настройка отключена.
 - **Сохранение воспроизведения** не останавливает звук при использовании кнопок **Обновить звук** или **Обновить плейлист**, если ничего не изменилось либо изменились только: название, громкость, повторение, длительность затухания, порог тишины, описание, режим воспроизведения или сортировка плейлиста. Изменение источника аудио, аудиоканала или свойств, добавленных другими модулями, по-прежнему останавливает воспроизведение. По умолчанию настройка отключена.
 - **Отключение проверок ревизии** ускоряет операции с глобальными плейлистами, пропуская дополнительные проверки файлов. Включайте эту настройку, только если управление глобальными плейлистами происходит с одного клиента и запуск их воспроизведения происходит с заметной задержкой. Если плейлистами одновременно управляют несколько клиентов, при включённой настройке их изменения могут перезаписать друг друга. При технической ошибке во время операции с несколькими файлами изменения могут сохраниться лишь частично. По умолчанию настройка отключена.
 

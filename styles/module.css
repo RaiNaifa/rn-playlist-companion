@@ -1,4 +1,18 @@
 .playlists-sidebar {
+  .currently-playing {
+    .sound.rn-restricted-playing {
+      > header {
+        display: none;
+      }
+
+      .sound-controls,
+      .pause,
+      .play-pause {
+        display: none;
+      }
+    }
+  }
+
   .sound > header > .sound-controls {
     flex-basis: 48px;
 

@@ -34,6 +34,10 @@
       "Suppress": "Don't show again"
     },
     "Settings": {
+      "HideRestrictedPlaylists": {
+        "Name": "Hide Sound Names from Players",
+        "Hint": "Shows players only the time and volume for sounds in Currently Playing, hiding all other details. Players with at least Observer access to a playlist can still see the details."
+      },
       "DisableRevisionChecks": {
         "Name": "Disable revision checks",
         "Hint": "Enable only when global playlists are managed from one client.\nSpeeds up global playlist operations by skipping additional file checks. If several clients manage playlists at the same time, their changes may overwrite each other. A technical failure during a multi-file operation may save only part of the changes."
