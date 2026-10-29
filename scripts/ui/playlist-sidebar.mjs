@@ -4,8 +4,8 @@ import { folderBranch, moveBranchToGlobal, moveBranchToLocal, removeGlobal } fro
 import { filterHiddenTree, hiddenIds, isHidden, setHidden } from "../library/visibility.mjs";
 import { decorateDescriptions, registerDescriptionTooltipUpdates } from "./description-tooltip.mjs";
 import { decorateNames } from "./name-marquee.mjs";
-import { patchPlayingTimer } from "./playing-timer.mjs";
 import { decorateRestrictedPlaying, restrictedPlaylist } from "./player-privacy.mjs";
+import { patchPlayingTimer } from "./playing-timer.mjs";
 import {
   decoratePreviewVolume,
   decorateSounds,
