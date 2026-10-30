@@ -29,7 +29,11 @@ export function onSocket(message) {
         return;
       }
       state.playbackByWorld[game.world.id] ??= {};
-      state.playbackByWorld[game.world.id][message.payload.id] = playbackData(updated);
+      const previous = state.playbackByWorld[game.world.id][message.payload.id];
+      state.playbackByWorld[game.world.id][message.payload.id] = playbackData(
+        updated,
+        message.payload.randomHistory ?? previous?.randomHistory,
+      );
     } else if (message.type === "upsert") {
       if (!installInClient(message.payload)) {
         reloadGlobalPlaylists().catch(reportError);
@@ -38,7 +42,8 @@ export function onSocket(message) {
       const id = message.payload._id;
       if (!state.playlistOrder.includes(id)) state.playlistOrder.push(id);
       state.playbackByWorld[game.world.id] ??= {};
-      state.playbackByWorld[game.world.id][id] = playbackData(message.payload);
+      const previous = state.playbackByWorld[game.world.id][id];
+      state.playbackByWorld[game.world.id][id] = playbackData(message.payload, previous?.randomHistory);
     } else {
       const id = message.payload.id;
       removeFromClient(id);

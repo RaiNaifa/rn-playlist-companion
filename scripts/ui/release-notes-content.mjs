@@ -2,6 +2,9 @@
 export const RELEASE_NOTES = {
   en: {
     "0.3.2": {
+      Added: [
+        "Random playback mode for playlists: each sound is selected at random without repeating the currently playing sound.",
+      ],
       Fixed: [
         "Global playlists in Shuffle mode now work the same way as standard Foundry playlists.",
       ],
@@ -41,6 +44,9 @@ export const RELEASE_NOTES = {
   },
   ru: {
     "0.3.2": {
+      Добавлено: [
+        "Режим воспроизведения «Случайный» для плейлистов: каждый включаемый звук выбирается случайно, не повторяя при этом текущий.",
+      ],
       Исправлено: [
         "Глобальные плейлисты в режиме «Перемешивание» теперь работают так же как стандартные плейлисты Foundry.",
       ],

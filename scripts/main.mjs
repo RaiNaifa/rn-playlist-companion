@@ -1,6 +1,7 @@
 import { installBoundedPlayback } from "./audio/bounded-playback.mjs";
 import { registerBufferDurationSettings } from "./audio/buffer-duration.mjs";
 import { registerPreviewSettings } from "./audio/preview.mjs";
+import { installRandomPlayback } from "./audio/random-playback.mjs";
 import { MODULE_ID, reportError, state } from "./core/context.mjs";
 import { patchDocumentMethods } from "./foundry/document-bridge.mjs";
 import { onSocket } from "./foundry/socket-sync.mjs";
@@ -30,6 +31,7 @@ Hooks.once("init", () => {
   registerRevisionControlSetting();
   installBoundedPlayback();
   patchDocumentMethods();
+  installRandomPlayback();
   patchDirectory();
 });
 

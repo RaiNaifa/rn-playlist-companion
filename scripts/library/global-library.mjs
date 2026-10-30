@@ -1,5 +1,11 @@
-import { nextPlayback, playbackData, storedData, withPlayback } from "../audio/playback-state.mjs";
-import { error, isGlobal, isGlobalFolder, publish, reportError, state, t } from "../core/context.mjs";
+import {
+  nextPlayback,
+  playbackData,
+  RANDOM_HISTORY_LIMIT,
+  storedData,
+  withPlayback,
+} from "../audio/playback-state.mjs";
+import { error, isGlobal, isGlobalFolder, MODULE_ID, publish, reportError, state, t } from "../core/context.mjs";
 import {
   installFolder,
   installInClient,
@@ -42,13 +48,21 @@ export async function updateGlobal(playlist, changes, options = {}) {
   }
   const updated = applyChanges(playlist.toObject(), changes);
   const candidate = serialize().map((item) => (item._id === playlist.id ? storedData(updated) : item));
-  const saved = await persist(candidate, nextPlayback(playlist.id, updated), null, null, { announceRevision: false });
+  const randomMode = changes.flags?.[MODULE_ID]?.randomPlayback;
+  const modeChanged =
+    (randomMode !== undefined && randomMode !== playlist.flags?.[MODULE_ID]?.randomPlayback) ||
+    ("mode" in changes && changes.mode !== playlist.mode);
+  const randomHistory = options.rnRandomHistory ?? (modeChanged ? [] : undefined);
+  const saved = await persist(candidate, nextPlayback(playlist.id, updated, randomHistory), null, null, {
+    announceRevision: false,
+  });
   installInClient(updated, options);
   publish(
     "patch",
     {
       id: playlist.id,
       changes,
+      ...(randomHistory !== undefined ? { randomHistory } : {}),
     },
     revisionMessage(saved),
   );
@@ -208,7 +222,18 @@ export async function moveBranchToGlobal(document, targetFolder = null, ask = tr
   const playback = foundry.utils.deepClone(state.playbackByWorld);
   playback[game.world.id] ??= {};
   const world = playback[game.world.id];
-  for (const data of playlistData) world[data._id] = playbackData(data);
+  for (const data of playlistData) {
+    const history = data.flags?.[MODULE_ID]?.randomHistory;
+    world[data._id] = playbackData(
+      data,
+      data.flags?.[MODULE_ID]?.randomPlayback
+        ? Array.isArray(history)
+          ? history.slice(-RANDOM_HISTORY_LIMIT)
+          : []
+        : undefined,
+    );
+    if (data.flags?.[MODULE_ID]) delete data.flags[MODULE_ID].randomHistory;
+  }
   // Save the global copy before deleting local documents, so a failed write leaves the originals intact.
   await persist([...serialize(), ...playlistData.map(storedData)], playback, [...serializeFolders(), ...folderData]);
   try {
@@ -233,6 +258,12 @@ export async function moveBranchToLocal(document, targetFolder = null, ask = tru
   if (ask && !(await confirmMove(folder, branch, false))) return null;
   const folderData = branch.folders.map((f) => f.toObject());
   const playlistData = branch.playlists.map((p) => p.toObject());
+  for (const data of playlistData) {
+    const history = state.playbackByWorld[game.world.id]?.[data._id]?.randomHistory;
+    if (!Array.isArray(history)) continue;
+    data.flags ??= {};
+    data.flags[MODULE_ID] = { ...data.flags[MODULE_ID], randomHistory: history.slice(-RANDOM_HISTORY_LIMIT) };
+  }
   const root = folder ? folderData.find((f) => f._id === folder.id) : playlistData[0];
   root.folder = targetFolder;
   // Release the IDs in Foundry's client collections before creating local documents with those same IDs.

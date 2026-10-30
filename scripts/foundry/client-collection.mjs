@@ -61,8 +61,19 @@ function withoutLiveFields({
   sorting,
   fade,
   seed,
+  flags,
   ...playlist
 }) {
+  if (flags) {
+    const otherFlags = { ...flags };
+    if (otherFlags[MODULE_ID]) {
+      const moduleFlags = { ...otherFlags[MODULE_ID] };
+      delete moduleFlags.randomPlayback;
+      if (Object.keys(moduleFlags).length) otherFlags[MODULE_ID] = moduleFlags;
+      else delete otherFlags[MODULE_ID];
+    }
+    if (Object.keys(otherFlags).length) playlist.flags = otherFlags;
+  }
   return playlist;
 }
 
@@ -82,6 +93,9 @@ function applyLiveChanges(playlist, data, { forceSync = false } = {}) {
   if (playlist._source.folder !== data.folder) playlistChanges.folder = data.folder;
   if ("playing" in data && playlist.playing !== data.playing) playlistChanges.playing = data.playing;
   if ("seed" in data && playlist.seed !== data.seed) playlistChanges.seed = data.seed;
+  if (Boolean(playlist.flags?.[MODULE_ID]?.randomPlayback) !== Boolean(data.flags?.[MODULE_ID]?.randomPlayback)) {
+    playlistChanges.flags = data.flags ?? { [MODULE_ID]: { randomPlayback: false } };
+  }
   for (const key of ["name", "description", "mode", "sorting", "fade"]) {
     if ((playlist._source ?? playlist)[key] !== data[key]) playlistChanges[key] = data[key];
   }
@@ -119,7 +133,12 @@ function applyLiveChanges(playlist, data, { forceSync = false } = {}) {
   // Playlist.prepareDerivedData derives playing from its Sounds. Update them
   // first or updateSource will immediately revert the playlist's playing flag.
   if (Object.keys(playlistChanges).length || changedSounds.length) playlist.updateSource(playlistChanges);
-  if ("mode" in playlistChanges || "sorting" in playlistChanges || "seed" in playlistChanges) {
+  if (
+    "mode" in playlistChanges ||
+    "sorting" in playlistChanges ||
+    "seed" in playlistChanges ||
+    "flags" in playlistChanges
+  ) {
     playlist._onUpdate?.(playlistChanges, { render: false }, game.user.id);
   }
   // updateSource skips preparation when the source value is already correct,

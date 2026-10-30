@@ -38,6 +38,17 @@ export function safeConfigChanges(diff, sound = false) {
   for (const [key, value] of Object.entries(diff)) {
     if (key === "_id" || allowed.has(key)) continue;
     if (
+      !sound &&
+      key === "flags" &&
+      value &&
+      typeof value === "object" &&
+      Object.keys(value).length === 1 &&
+      value[MODULE_ID] &&
+      typeof value[MODULE_ID] === "object" &&
+      Object.keys(value[MODULE_ID]).every((field) => ["randomPlayback", "randomHistory"].includes(field))
+    )
+      continue;
+    if (
       sound &&
       key === "flags" &&
       value &&

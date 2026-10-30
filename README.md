@@ -62,6 +62,11 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 - **Currently Playing** and Preview show time relative to the selected section instead of the full file.
 - Changing the file path leaves old boundaries inactive until they are checked or analyzed again.
 
+#### Random Playback
+
+- Playlists have a **Random Playback** mode. Each sound is selected at random without repeating the currently playing sound. This mode does not shuffle the order of sounds in the playlist.
+- **Previous Sound** works for the last 20 transitions. **Next Sound** always makes a new random selection. The history is cleared when the playlist is fully stopped.
+
 #### Playlists Performance
 
 - Collapsed playlists do not render their sound rows, helping Foundry’s interface stay responsive when the playlist sidebar is open, even with many sounds.
@@ -134,6 +139,11 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 - При каждом запуске анализа файл полностью загружается и декодируется, поэтому длинные файлы могут потреблять много памяти.
 - В разделе **Сейчас играет** время отображается относительно выбранного участка, а не всего файла.
 - После изменения пути к файлу прежние границы не используются, пока их не проверить или не определить заново.
+
+#### Случайное воспроизведение
+
+- Для плейлистов добавлен режим воспроизведения **Случайный**. В нём каждый включаемый звук выбирается случайно, не повторяя при этом текущий. Порядок звуков в самом плейлисте в этом режиме не перемешивается.
+- **Предыдущий звук** работает для последних 20 переходов. **Следующий звук** всегда делает новый случайный выбор. При полной остановке плейлиста история очищается.
 
 #### Производительность плейлистов
 

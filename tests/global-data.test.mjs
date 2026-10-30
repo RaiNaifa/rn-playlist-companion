@@ -393,6 +393,26 @@ test("Foundry 14 accepts upload hooks that lowercase filenames", async () => {
   assert.equal((await readStore()).playlists[0]._id, "MixedCaseID");
 });
 
+test("random playback history moves between local flags and this world's global playback", async () => {
+  const { playlists, events, files } = setup();
+  const local = addLocalPlaylist(playlists, events, "random-list", null);
+  local._source.flags = { "rn-playlist-companion": { randomPlayback: true, randomHistory: ["random-list-sound"] } };
+
+  const global = await moveBranchToGlobal(local, null, false);
+  assert.deepEqual(files.get("rn-global-playlists/playback/world-a.json").playlists[global.id].randomHistory, [
+    "random-list-sound",
+  ]);
+  assert.equal(
+    files.get("rn-global-playlists/playlists/random-list.json").flags["rn-playlist-companion"].randomHistory,
+    undefined,
+  );
+
+  await moveBranchToLocal(global, null, false);
+  assert.deepEqual(game.playlists.get("random-list").toObject().flags["rn-playlist-companion"].randomHistory, [
+    "random-list-sound",
+  ]);
+});
+
 test("Foundry 13 context entries use names, HTML icons, conditions and callbacks", () => {
   setup({ generation: 13 });
   const options = [{ name: "SIDEBAR.Delete", icon: '<i class="fa-solid fa-trash"></i>' }];
@@ -1572,6 +1592,33 @@ test("safe global metadata updates preserve the current audio object", () => {
   assert.equal(sound.flags["rn-playlist-companion"].threshold, -40);
 });
 
+test("switching global random mode on and off preserves the playing audio object", () => {
+  setup();
+  const data = {
+    _id: "global",
+    mode: 0,
+    playing: true,
+    flags: { "rn-playlist-companion": { randomPlayback: false } },
+    sounds: [{ _id: "sound", playing: true }],
+  };
+  installInClient(data);
+  const playlist = game.playlists.get("global");
+  const sound = playlist.sounds.get("sound");
+  const audio = { playing: true, currentTime: 42, stop: () => assert.fail("Mode change stopped the audio") };
+  sound.sound = audio;
+
+  installInClient({ ...data, flags: { "rn-playlist-companion": { randomPlayback: true } } });
+  assert.equal(game.playlists.get("global"), playlist);
+  assert.equal(sound.sound, audio);
+  assert.equal(playlist.flags["rn-playlist-companion"].randomPlayback, true);
+
+  installInClient({ ...data, flags: { "rn-playlist-companion": { randomPlayback: false } } });
+  assert.equal(game.playlists.get("global"), playlist);
+  assert.equal(sound.sound, audio);
+  assert.equal(audio.currentTime, 42);
+  assert.equal(playlist.flags["rn-playlist-companion"].randomPlayback, false);
+});
+
 test("stopping one edited global Sound does not restart another playing Sound", () => {
   setup();
   const data = {
@@ -2031,6 +2078,41 @@ test("global shuffle refreshes its order on start and manual play, but keeps it 
   assert.deepEqual(invalidations, [321, 654, 987]);
   assert.equal(files.get("rn-global-playlists/playlists/global.json").seed, 987);
   assert.equal(socketMessages.at(-1).payload.changes.seed, 987);
+});
+
+test("global random history uses the existing world playback write and socket patch", async () => {
+  const { events, files, setDisk, socketMessages } = setup();
+  foundry.utils.mergeObject = (target, changes) => Object.assign(target, changes);
+  const data = {
+    _id: "global",
+    name: "Random Playback",
+    folder: null,
+    mode: 0,
+    flags: { "rn-playlist-companion": { randomPlayback: true } },
+    sounds: [
+      { _id: "first", playing: true },
+      { _id: "second", playing: false },
+    ],
+  };
+  setDisk({ revision: 0, folders: [], playlists: [data], playbackByWorld: {} });
+  installInClient(data);
+  await updateGlobal(
+    game.playlists.get("global"),
+    {
+      sounds: [
+        { _id: "first", playing: false },
+        { _id: "second", playing: true },
+      ],
+    },
+    { rnRandomHistory: ["first"] },
+  );
+  assert.deepEqual(files.get("rn-global-playlists/playback/world-a.json").playlists.global.randomHistory, ["first"]);
+  assert.deepEqual(socketMessages.at(-1).payload.randomHistory, ["first"]);
+  assert.equal(events.filter((event) => event === "upload:rn-global-playlists/playback/world-a.json").length, 1);
+  assert.equal(
+    files.get("rn-global-playlists/playlists/global.json").flags["rn-playlist-companion"].randomHistory,
+    undefined,
+  );
 });
 
 test("global sound, playlist, and folder sorting write to global storage instead of the world database", async () => {

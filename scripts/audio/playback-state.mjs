@@ -1,7 +1,10 @@
-import { state } from "../core/context.mjs";
+import { MODULE_ID, state } from "../core/context.mjs";
+
+export const RANDOM_HISTORY_LIMIT = 20;
 
 export function storedData(data) {
   const copy = foundry.utils.deepClone(data);
+  if (copy.flags?.[MODULE_ID]) delete copy.flags[MODULE_ID].randomHistory;
   copy.playing = false;
   for (const sound of copy.sounds ?? []) {
     sound.playing = false;
@@ -10,7 +13,7 @@ export function storedData(data) {
   return copy;
 }
 
-export function playbackData(data) {
+export function playbackData(data, randomHistory) {
   return {
     playing: Boolean(data.playing),
     sounds: Object.fromEntries(
@@ -22,6 +25,7 @@ export function playbackData(data) {
         },
       ]),
     ),
+    ...(randomHistory !== undefined ? { randomHistory } : {}),
   };
 }
 
@@ -37,10 +41,10 @@ export function withPlayback(data, saved) {
   return copy;
 }
 
-export function nextPlayback(id, data) {
+export function nextPlayback(id, data, randomHistory) {
   const all = foundry.utils.deepClone(state.playbackByWorld);
   all[game.world.id] ??= {};
   const world = all[game.world.id];
-  world[id] = playbackData(data);
+  world[id] = playbackData(data, randomHistory ?? world[id]?.randomHistory);
   return all;
 }

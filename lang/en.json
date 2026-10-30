@@ -157,6 +157,7 @@
       "Unresolved": "An ID conflict remains unresolved. The local item is available. Reopen the choice in module settings."
     },
     "UI": {
+      "RandomMode": "Random Playback",
       "OpenArchive": "Global archive",
       "ResolveConflicts": "Resolve conflicts manually",
       "ResolveConflictsButton": "Resolve conflicts",
