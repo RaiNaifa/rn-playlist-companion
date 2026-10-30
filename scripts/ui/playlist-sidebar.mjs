@@ -15,7 +15,37 @@ import {
 import { decorateSoundChannelIcons } from "./sound-channel-icon.mjs";
 import { mountSoundWindows, patchSoundWindows, searchActive } from "./sound-window.mjs";
 
-const uiState = { open: false, editing: false, showHidden: false };
+const uiState = { open: false, editing: false, showHidden: false, playingOpen: true };
+
+function decorateCurrentlyPlaying(element) {
+  const widget = element.querySelector(".currently-playing");
+  if (!widget) return;
+  const header = widget.querySelector(":scope > .playlist-header");
+  const list = widget.querySelector(":scope > .playlist-sounds, :scope > .expandable .playlist-sounds");
+  if (!header || !list) return;
+  let expandable = widget.querySelector(":scope > .expandable");
+  if (!expandable) {
+    expandable = document.createElement("div");
+    expandable.className = "expandable";
+    const wrapper = document.createElement("div");
+    wrapper.className = "wrapper";
+    list.before(expandable);
+    wrapper.append(list);
+    expandable.append(wrapper);
+  }
+  widget.classList.toggle("expanded", uiState.playingOpen);
+  if (!header.querySelector(":scope > .expand")) {
+    const icon = document.createElement("i");
+    icon.className = "expand fa-solid fa-angle-up";
+    icon.setAttribute("inert", "");
+    header.prepend(icon);
+    header.addEventListener("click", (event) => {
+      if (event.target.closest(".pin")) return;
+      uiState.playingOpen = !uiState.playingOpen;
+      widget.classList.toggle("expanded", uiState.playingOpen);
+    });
+  }
+}
 export function folderForDrop(target, sourceType) {
   if (!target) return null;
   if (target.matches(".folder")) {
@@ -129,6 +159,7 @@ export function decorateDirectory(app) {
   const element = app.element;
   if (!element) return;
   syncPreviewWidget(element);
+  decorateCurrentlyPlaying(element);
   decorateRestrictedPlaying(element);
   mountSoundWindows(app, element, () => {
     decorateSounds(element);

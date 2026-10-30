@@ -2,6 +2,9 @@
 export const RELEASE_NOTES = {
   en: {
     "0.3.1": {
+      Added: [
+        "Ability to collapse the Currently Playing section.",
+      ],
       Fixed: [
         'The changelog no longer reappears for the same module version after closing it with "Don\'t show again" checked.',
       ],
@@ -33,6 +36,9 @@ export const RELEASE_NOTES = {
   },
   ru: {
     "0.3.1": {
+      Добавлено: [
+        "Возможность свернуть вкладку «Сейчас играет».",
+      ],
       Исправлено: [
         "Теперь окно изменений не отображается снова для той же версии модуля, если было закрыто с отмеченным чекбоксом «Больше не показывать»",
       ],

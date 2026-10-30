@@ -38,6 +38,18 @@
       "quoteStyle": "double"
     }
   },
+  "overrides": [
+    {
+      "includes": [
+        "scripts/ui/release-notes-content.mjs"
+      ],
+      "javascript": {
+        "formatter": {
+          "expand": "always"
+        }
+      }
+    }
+  ],
   "linter": {
     "rules": {
       "preset": "recommended"

@@ -187,6 +187,26 @@
   }
 
   .currently-playing {
+    > .playlist-header {
+      cursor: var(--cursor-pointer);
+
+      .expand {
+        transition: all 250ms ease;
+      }
+    }
+
+    &.expanded {
+      > .playlist-header {
+        .expand {
+          transform: rotate(180deg);
+        }
+      }
+
+      > .expandable {
+        grid-template-rows: 1fr;
+      }
+    }
+
     .sound.rn-restricted-playing {
       > header {
         display: none;
