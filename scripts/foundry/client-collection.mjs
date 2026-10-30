@@ -50,7 +50,19 @@ export function removeFromClient(id) {
   refresh();
 }
 
-function withoutLiveFields({ sort, folder, playing, sounds, name, description, mode, sorting, fade, ...playlist }) {
+function withoutLiveFields({
+  sort,
+  folder,
+  playing,
+  sounds,
+  name,
+  description,
+  mode,
+  sorting,
+  fade,
+  seed,
+  ...playlist
+}) {
   return playlist;
 }
 
@@ -69,6 +81,7 @@ function applyLiveChanges(playlist, data, { forceSync = false } = {}) {
   if ("sort" in data && playlist.sort !== data.sort) playlistChanges.sort = data.sort;
   if (playlist._source.folder !== data.folder) playlistChanges.folder = data.folder;
   if ("playing" in data && playlist.playing !== data.playing) playlistChanges.playing = data.playing;
+  if ("seed" in data && playlist.seed !== data.seed) playlistChanges.seed = data.seed;
   for (const key of ["name", "description", "mode", "sorting", "fade"]) {
     if ((playlist._source ?? playlist)[key] !== data[key]) playlistChanges[key] = data[key];
   }
@@ -106,7 +119,7 @@ function applyLiveChanges(playlist, data, { forceSync = false } = {}) {
   // Playlist.prepareDerivedData derives playing from its Sounds. Update them
   // first or updateSource will immediately revert the playlist's playing flag.
   if (Object.keys(playlistChanges).length || changedSounds.length) playlist.updateSource(playlistChanges);
-  if ("mode" in playlistChanges || "sorting" in playlistChanges) {
+  if ("mode" in playlistChanges || "sorting" in playlistChanges || "seed" in playlistChanges) {
     playlist._onUpdate?.(playlistChanges, { render: false }, game.user.id);
   }
   // updateSource skips preparation when the source value is already correct,

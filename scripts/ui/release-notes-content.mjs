@@ -1,6 +1,11 @@
 // Add release notes for each published version. Keep both languages in sync.
 export const RELEASE_NOTES = {
   en: {
+    "0.3.2": {
+      Fixed: [
+        "Global playlists in Shuffle mode now work the same way as standard Foundry playlists.",
+      ],
+    },
     "0.3.1": {
       Added: [
         "Ability to collapse the Currently Playing section.",
@@ -35,6 +40,11 @@ export const RELEASE_NOTES = {
     },
   },
   ru: {
+    "0.3.2": {
+      Исправлено: [
+        "Глобальные плейлисты в режиме «Перемешивание» теперь работают так же как стандартные плейлисты Foundry.",
+      ],
+    },
     "0.3.1": {
       Добавлено: [
         "Возможность свернуть вкладку «Сейчас играет».",

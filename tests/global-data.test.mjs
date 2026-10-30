@@ -1971,6 +1971,68 @@ test("a reload cannot replace a newer local revision with older disk data", asyn
   assert.equal(state.playlists.get("global")?.toObject().name, "Current");
 });
 
+test("global shuffle refreshes its order on start and manual play, but keeps it for next and previous", async () => {
+  const { files, setDisk, socketMessages } = setup();
+  foundry.utils.mergeObject = (target, changes) => Object.assign(target, changes);
+  const data = {
+    _id: "global",
+    name: "Shuffle",
+    folder: null,
+    mode: 1,
+    seed: 100,
+    playing: false,
+    sounds: [
+      { _id: "first", playing: false },
+      { _id: "second", playing: false },
+    ],
+  };
+  setDisk({ revision: 0, folders: [], playlists: [data], playbackByWorld: {} });
+  const playlist = new foundry.documents.Playlist(data);
+  playlist.seed = 100;
+  playlist.mode = 1;
+  playlist.playing = false;
+  const invalidations = [];
+  playlist._onUpdate = (changes) => invalidations.push(changes.seed);
+  game.playlists.set(playlist.id, playlist);
+  state.playlists.set(playlist.id, playlist);
+  const random = Math.random;
+  try {
+    Math.random = () => 0.321;
+    await updateGlobal(playlist, { playing: true, sounds: [{ _id: "first", playing: true }] });
+    assert.equal(playlist.seed, 321);
+    assert.equal(state.playlists.get("global"), playlist);
+
+    await updateGlobal(playlist, {
+      sounds: [
+        { _id: "first", playing: false },
+        { _id: "second", playing: true },
+      ],
+    });
+    assert.equal(playlist.seed, 321);
+
+    await updateGlobal(playlist, {
+      sounds: [
+        { _id: "first", playing: true },
+        { _id: "second", playing: false },
+      ],
+    });
+    assert.equal(playlist.seed, 321);
+
+    Math.random = () => 0.654;
+    await updateGlobal(playlist, { playing: true, sounds: [{ _id: "first", playing: true }] });
+    assert.equal(playlist.seed, 654);
+
+    Math.random = () => 0.987;
+    await updateGlobal(playlist, { playing: false, sounds: [{ _id: "first", playing: false }] });
+    assert.equal(playlist.seed, 987);
+  } finally {
+    Math.random = random;
+  }
+  assert.deepEqual(invalidations, [321, 654, 987]);
+  assert.equal(files.get("rn-global-playlists/playlists/global.json").seed, 987);
+  assert.equal(socketMessages.at(-1).payload.changes.seed, 987);
+});
+
 test("global sound, playlist, and folder sorting write to global storage instead of the world database", async () => {
   const { files, setDisk } = setup();
   let worldSoundUpdates = 0;

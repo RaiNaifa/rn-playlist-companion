@@ -35,6 +35,11 @@ export async function updateGlobal(playlist, changes, options = {}) {
   ) {
     throw error("PlaylistPermissionDenied");
   }
+  // Foundry's Playlist._preUpdate refreshes the shared shuffle seed when playback
+  // or the mode changes. Global updates bypass that document hook.
+  if (("mode" in changes || "playing" in changes) && !("seed" in changes)) {
+    changes = { ...changes, seed: Math.floor(Math.random() * 1000) };
+  }
   const updated = applyChanges(playlist.toObject(), changes);
   const candidate = serialize().map((item) => (item._id === playlist.id ? storedData(updated) : item));
   const saved = await persist(candidate, nextPlayback(playlist.id, updated), null, null, { announceRevision: false });
