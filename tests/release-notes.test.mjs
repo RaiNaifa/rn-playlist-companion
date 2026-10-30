@@ -125,8 +125,26 @@ test("only a GM sees new installed release notes once", async () => {
   await showReleaseNotesAfterUpdate();
   assert.equal(seenVersion, "0.4.0");
 
-  game.user.isGM = false;
+  RELEASE_NOTES.en["0.5.0"] = ["One more feature"];
   installedVersion = "0.5.0";
+  foundry.applications.api.DialogV2.wait = async (config) => {
+    const input = {
+      checked: false,
+      addEventListener: (_event, listener) => {
+        input.checked = true;
+        listener();
+      },
+    };
+    config.render(null, {
+      element: { querySelector: (selector) => (selector === 'input[name="suppressReleaseNotes"]' ? input : null) },
+    });
+    return null;
+  };
+  await showReleaseNotesAfterUpdate();
+  assert.equal(seenVersion, "0.5.0");
+
+  game.user.isGM = false;
+  installedVersion = "0.6.0";
   await showReleaseNotesAfterUpdate();
   assert.equal(dialogs, 3);
 });

@@ -1,6 +1,11 @@
 // Add release notes for each published version. Keep both languages in sync.
 export const RELEASE_NOTES = {
   en: {
+    "0.3.1": {
+      Fixed: [
+        'The changelog no longer reappears for the same module version after closing it with "Don\'t show again" checked.',
+      ],
+    },
     "0.3.0": {
       Added: [
         "Configurable playback boundaries in Sound settings.",
@@ -27,6 +32,11 @@ export const RELEASE_NOTES = {
     },
   },
   ru: {
+    "0.3.1": {
+      Исправлено: [
+        "Теперь окно изменений не отображается снова для той же версии модуля, если было закрыто с отмеченным чекбоксом «Больше не показывать»",
+      ],
+    },
     "0.3.0": {
       Добавлено: [
         "Настраиваемые границы воспроизведения в настройках звука.",

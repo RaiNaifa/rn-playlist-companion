@@ -59,12 +59,16 @@ export async function showReleaseNotesAfterUpdate() {
       )
       .join("");
     const content = `<div class="rn-release-notes">${entries}</div><label class="rn-release-notes-optout"><input type="checkbox" name="suppressReleaseNotes"> ${t("ReleaseNotes.Suppress")}</label>`;
-    const submitted = await foundry.applications.api.DialogV2.wait({
+    await foundry.applications.api.DialogV2.wait({
       classes: ["rn-release-notes-dialog"],
       window: { title: t("ReleaseNotes.Title"), resizable: true },
       position: { width: 600 },
       content,
       render: (_event, dialog) => {
+        const input = dialog.element?.querySelector(checkbox);
+        input?.addEventListener("change", () => {
+          suppressOnClose = input.checked;
+        });
         const label = dialog.element?.querySelector(".rn-release-notes-optout");
         const footer = dialog.element?.querySelector("form footer");
         if (!label || !footer) return;
@@ -76,14 +80,17 @@ export async function showReleaseNotesAfterUpdate() {
           action: "close",
           label: t("ReleaseNotes.Close"),
           default: true,
-          callback: (_event, button) => isSuppressed(button.form),
+          callback: (_event, button, dialog) => {
+            suppressOnClose ||= isSuppressed(button.form) || isSuppressed(dialog?.element);
+            return suppressOnClose;
+          },
         },
       ],
       close: (_event, dialog) => {
         suppressOnClose ||= isSuppressed(dialog.element);
       },
     });
-    if (!submitted && !suppressOnClose) return;
+    if (!suppressOnClose) return;
   }
 
   await game.settings.set(MODULE_ID, SETTING, currentVersion);
