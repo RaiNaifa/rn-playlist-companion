@@ -7,6 +7,8 @@ export const RELEASE_NOTES = {
       ],
       Fixed: [
         "Global playlists in Shuffle mode now work the same way as standard Foundry playlists.",
+        "Empty playlist folders now remain visible after creation.",
+        "Expanded playlists no longer show an empty area instead of their sound list when their folder is reopened.",
       ],
     },
     "0.3.1": {
@@ -49,6 +51,8 @@ export const RELEASE_NOTES = {
       ],
       Исправлено: [
         "Глобальные плейлисты в режиме «Перемешивание» теперь работают так же как стандартные плейлисты Foundry.",
+        "Пустые папки плейлистов теперь остаются видимыми после создания.",
+        "Развёрнутые плейлисты после повторного открытия папки больше не отображают пустоту вместо списка звуков.",
       ],
     },
     "0.3.1": {

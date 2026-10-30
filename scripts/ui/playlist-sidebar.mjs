@@ -309,7 +309,9 @@ export function patchDirectory() {
         return !playlist || !restrictedPlaylist(playlist);
       });
       const children = node.children.map(removeRestricted).filter(Boolean);
-      return entries.length || children.length || !node.folder ? { ...node, entries, children } : null;
+      return entries.length || children.length || (!node.entries.length && !node.children.length) || !node.folder
+        ? { ...node, entries, children }
+        : null;
     };
     context.tree = removeRestricted(context.tree);
   };

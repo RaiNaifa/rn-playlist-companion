@@ -14,7 +14,14 @@ const windows = new WeakMap();
 function stateFor(app) {
   let state = windows.get(app);
   if (!state) {
-    state = { records: [], search: false, pending: false, scrollport: null, resizeObserver: null };
+    state = {
+      records: [],
+      search: false,
+      pending: false,
+      scrollport: null,
+      resizeObserver: null,
+      folderObserver: null,
+    };
     windows.set(app, state);
   }
   return state;
@@ -166,6 +173,7 @@ export function mountSoundWindows(app, element, decorateRows) {
   const freshList = scrollport.querySelector(".playlist.expanded .playlist-sounds:not(.rn-windowed)");
   if (state.scrollport === scrollport && state.records.every((record) => record.list.isConnected) && !freshList) return;
   state.resizeObserver?.disconnect();
+  state.folderObserver?.disconnect();
   state.records = [];
   state.scrollport = scrollport;
   state.decorateRows = decorateRows;
@@ -197,6 +205,12 @@ export function mountSoundWindows(app, element, decorateRows) {
   updateWindow(app, { force: true });
   scrollport.addEventListener("scroll", () => scheduleWindow(app), { passive: true });
   scrollport.addEventListener("transitionend", () => scheduleWindow(app));
+  // Foundry toggles a folder's expanded class when it opens or closes.
+  // Recalculate visible sound rows then, even if no scroll or transition event occurs.
+  state.folderObserver = new MutationObserver((mutations) => {
+    if (mutations.some(({ target }) => target.classList.contains("folder"))) scheduleWindow(app);
+  });
+  state.folderObserver.observe(scrollport, { attributes: true, attributeFilter: ["class"], subtree: true });
   state.resizeObserver = new ResizeObserver(() => scheduleWindow(app));
   state.resizeObserver.observe(scrollport);
 }
