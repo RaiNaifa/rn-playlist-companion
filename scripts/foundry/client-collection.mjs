@@ -26,6 +26,11 @@ export function installFolder(data) {
   const old = game.folders.get(id);
   if (old && old !== state.folders.get(id)) throw error("FolderCollision", { id });
   const folder = new foundry.documents.Folder(data);
+  // Global playlists are injected into the client collection, so use that
+  // collection as the source for Foundry's folder ownership dialog.
+  Object.defineProperty(folder, "contents", {
+    get: () => game.playlists.filter((playlist) => playlist._source.folder === id),
+  });
   game.folders.set(id, folder);
   state.folders.set(id, folder);
   refresh();

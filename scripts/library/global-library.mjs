@@ -21,7 +21,15 @@ export function applyChanges(data, changes) {
   const next = foundry.utils.deepClone(data);
   const { sounds, ...rest } = changes;
   delete rest._id;
+  // Ownership forms replace the complete ownership map.
+  // v13 uses "==ownership", v14 uses a ForcedReplacement operator.
+  const replacement = foundry.data?.operators?.ForcedReplacement;
+  const replaceOwnership = Object.hasOwn(rest, "==ownership") || (replacement && rest.ownership instanceof replacement);
+  const ownership = Object.hasOwn(rest, "==ownership") ? rest["==ownership"] : replacement?.get(rest.ownership);
+  delete rest["==ownership"];
+  if (replaceOwnership) delete rest.ownership;
   foundry.utils.mergeObject(next, rest, { inplace: true });
+  if (replaceOwnership) next.ownership = foundry.utils.deepClone(ownership);
   if (Array.isArray(sounds)) {
     const byId = new Map((next.sounds ?? []).map((sound) => [sound._id, sound]));
     for (const patch of sounds) {
@@ -35,6 +43,9 @@ export function applyChanges(data, changes) {
 }
 
 export async function updateGlobal(playlist, changes, options = {}) {
+  if (!game.user.isGM && (Object.hasOwn(changes, "ownership") || Object.hasOwn(changes, "==ownership"))) {
+    throw error("PlaylistPermissionDenied");
+  }
   if (
     !game.user.isGM &&
     (!game.user.hasPermission("PLAYLIST_CREATE") || !playlist.canUserModify(game.user, "update", changes))
@@ -57,6 +68,13 @@ export async function updateGlobal(playlist, changes, options = {}) {
     announceRevision: false,
   });
   installInClient(updated, options);
+  // Socket patches contain plain data so other clients can apply the same
+  // replacement without serializing Foundry's operator instance.
+  const replacement = foundry.data?.operators?.ForcedReplacement;
+  if (Object.hasOwn(changes, "==ownership") || (replacement && changes.ownership instanceof replacement)) {
+    changes = { ...changes, "==ownership": updated.ownership };
+    delete changes.ownership;
+  }
   publish(
     "patch",
     {

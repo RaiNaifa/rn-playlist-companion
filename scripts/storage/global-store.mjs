@@ -146,6 +146,9 @@ async function readPlaylist(id, onRecreated = null) {
   }
   if (data === null) throw error("MissingPlaylist", { id });
   if (data?._id !== id || !Array.isArray(data.sounds)) throw error("UnsupportedFile");
+  if (data.ownership?.__$OPERATOR$__ === "ForcedReplacement") {
+    data.ownership = data.ownership.value;
+  }
   return data;
 }
 

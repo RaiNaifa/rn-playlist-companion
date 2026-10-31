@@ -25,6 +25,24 @@ export function restrictedPlaylist(playlist) {
   return !playlist.testUserPermission(game.user, "OBSERVER");
 }
 
+export function filterRestrictedTree(node) {
+  if (!node) return null;
+  const entries = node.entries.filter((entry) => {
+    const playlist = game.playlists.get(entry.id);
+    return !playlist || !restrictedPlaylist(playlist);
+  });
+  const children = node.children.map(filterRestrictedTree).filter(Boolean);
+  if (
+    !node.folder ||
+    entries.length ||
+    children.length ||
+    (game.user.isGM && !node.entries.length && !node.children.length)
+  ) {
+    return { ...node, entries, children };
+  }
+  return null;
+}
+
 export function decorateRestrictedPlaying(element) {
   for (const row of element.querySelectorAll(".currently-playing .sound[data-playlist-id]")) {
     const playlist = game.playlists.get(row.dataset.playlistId);

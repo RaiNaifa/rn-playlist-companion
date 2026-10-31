@@ -5,7 +5,7 @@ import { folderBranch, moveBranchToGlobal, moveBranchToLocal, removeGlobal } fro
 import { filterHiddenTree, hiddenIds, isHidden, setHidden } from "../library/visibility.mjs";
 import { decorateDescriptions, registerDescriptionTooltipUpdates } from "./description-tooltip.mjs";
 import { decorateNames } from "./name-marquee.mjs";
-import { decorateRestrictedPlaying, restrictedPlaylist } from "./player-privacy.mjs";
+import { decorateRestrictedPlaying, filterRestrictedTree } from "./player-privacy.mjs";
 import { patchPlayingTimer } from "./playing-timer.mjs";
 import {
   decoratePreviewVolume,
@@ -313,18 +313,7 @@ export function patchDirectory() {
       playingIds,
       showHidden: game.user.isGM && (uiState.showHidden || searchActive(this)),
     });
-    const removeRestricted = (node) => {
-      if (!node) return null;
-      const entries = node.entries.filter((entry) => {
-        const playlist = game.playlists.get(entry.id);
-        return !playlist || !restrictedPlaylist(playlist);
-      });
-      const children = node.children.map(removeRestricted).filter(Boolean);
-      return entries.length || children.length || (!node.entries.length && !node.children.length) || !node.folder
-        ? { ...node, entries, children }
-        : null;
-    };
-    context.tree = removeRestricted(context.tree);
+    context.tree = filterRestrictedTree(context.tree);
   };
   const original = Directory.prototype._onDrop;
   Directory.prototype._onDrop = async function (event) {

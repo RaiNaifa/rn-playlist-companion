@@ -625,6 +625,86 @@ test("a player cannot save someone else's global playlist or change its ownershi
   assert.ok(!events.some((event) => event.startsWith("upload:")));
 });
 
+test("global playlist ownership replaces old entries in v13 and reaches other clients", async () => {
+  const { files, setDisk, socketMessages } = setup({ generation: 13 });
+  foundry.documents.PlaylistSound = class {};
+  foundry.utils.mergeObject = (target, changes) => Object.assign(target, changes);
+  patchDocumentMethods();
+  const item = { _id: "owned", name: "Owned", ownership: { default: 0, old: 3 }, sounds: [] };
+  setDisk({ revision: 0, folders: [], playlists: [item], playbackByWorld: {} });
+  installInClient(item);
+
+  await game.playlists.get("owned").update({ "==ownership": { default: 2, new: 3 } }, { noHook: true });
+  assert.deepEqual(files.get("rn-global-playlists/playlists/owned.json").ownership, { default: 2, new: 3 });
+  assert.deepEqual(state.playlists.get("owned").toObject().ownership, { default: 2, new: 3 });
+  assert.deepEqual(socketMessages.at(-1).payload.changes["==ownership"], { default: 2, new: 3 });
+  assert.deepEqual(applyChanges(item, socketMessages.at(-1).payload.changes).ownership, { default: 2, new: 3 });
+});
+
+test("v14 ownership operator replaces old entries for global playlists in a folder", async () => {
+  const { files, setDisk } = setup();
+  class ForcedReplacement {
+    constructor(value) {
+      this.value = value;
+    }
+    static get(operator) {
+      return operator.value;
+    }
+  }
+  foundry.data = { operators: { ForcedReplacement } };
+  foundry.documents.PlaylistSound = class {};
+  foundry.utils.mergeObject = (target, changes) => Object.assign(target, changes);
+  patchDocumentMethods();
+  const folder = { _id: "folder", type: "Playlist", folder: null };
+  const direct = { _id: "direct", name: "Direct", folder: "folder", ownership: { default: 0, old: 3 }, sounds: [] };
+  const nested = { _id: "nested", name: "Nested", folder: "child", ownership: { default: 0, old: 3 }, sounds: [] };
+  setDisk({
+    revision: 0,
+    folders: [folder, { _id: "child", type: "Playlist", folder: "folder" }],
+    playlists: [direct, nested],
+    playbackByWorld: {},
+  });
+  installFolder(folder);
+  installFolder({ _id: "child", type: "Playlist", folder: "folder" });
+  installInClient(direct);
+  installInClient(nested);
+  assert.deepEqual(
+    game.folders.get("folder").contents.map((playlist) => playlist.id),
+    ["direct"],
+  );
+  await foundry.documents.Playlist.updateDocuments(
+    [{ _id: "direct", ownership: new ForcedReplacement({ default: 2, new: 3 }) }],
+    { noHook: true },
+  );
+
+  assert.deepEqual(files.get("rn-global-playlists/playlists/direct.json").ownership, { default: 2, new: 3 });
+  assert.deepEqual(files.get("rn-global-playlists/playlists/nested.json").ownership, { default: 0, old: 3 });
+  game.user = { id: "new", isGM: false, hasPermission: () => true };
+  await assert.rejects(
+    game.playlists.get("direct").update({ "==ownership": { default: 0, new: 3 } }),
+    /playlist management permission/,
+  );
+});
+
+test("previously serialized v14 ownership operators are decoded when loading global playlists", async () => {
+  const { setDisk } = setup();
+  setDisk({
+    revision: 0,
+    folders: [],
+    playlists: [
+      {
+        _id: "owned",
+        name: "Owned",
+        sounds: [],
+        ownership: { __$OPERATOR$__: "ForcedReplacement", value: { default: 3, player: 3 } },
+      },
+    ],
+    playbackByWorld: {},
+  });
+  const disk = await readStore();
+  assert.deepEqual(disk.playlists[0].ownership, { default: 3, player: 3 });
+});
+
 test("changing one sound among 200 playlists writes only its playlist file and the revision", async () => {
   const { files, playlists, events, setDisk } = setup();
   const data = Array.from({ length: 200 }, (_, i) => ({

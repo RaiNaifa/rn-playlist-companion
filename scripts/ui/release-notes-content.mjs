@@ -8,6 +8,7 @@ export const RELEASE_NOTES = {
       ],
       Fixed: [
         "Global playlists in Shuffle mode now work the same way as standard Foundry playlists.",
+        "Global playlist and folder ownership now changes correctly. Previously damaged permissions are read correctly, and empty folders are hidden from players.",
         "Empty playlist folders now remain visible after creation.",
         "Expanded playlists no longer show an empty area instead of their sound list when their folder is reopened.",
       ],
@@ -53,6 +54,7 @@ export const RELEASE_NOTES = {
       ],
       Исправлено: [
         "Глобальные плейлисты в режиме «Перемешивание» теперь работают так же как стандартные плейлисты Foundry.",
+        "Владение глобальными плейлистами и папками теперь изменяется корректно. Ранее повреждённые права читаются правильно, а пустые папки скрыты от игроков.",
         "Пустые папки плейлистов теперь остаются видимыми после создания.",
         "Развёрнутые плейлисты после повторного открытия папки больше не отображают пустоту вместо списка звуков.",
       ],
