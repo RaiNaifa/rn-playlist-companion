@@ -3,6 +3,17 @@ import { schedule as scheduleSilence } from "../audio/silence-playback.mjs";
 import { error, MODULE_ID, state } from "../core/context.mjs";
 
 const pendingUnlock = new WeakSet();
+let unlockRefreshQueued = false;
+
+function refreshAfterUnlock() {
+  // Many sounds can unlock together. Refresh the directory once after they have all synced.
+  if (unlockRefreshQueued) return;
+  unlockRefreshQueued = true;
+  queueMicrotask(() => {
+    unlockRefreshQueued = false;
+    refresh();
+  });
+}
 
 function syncAfterUnlock(sound, playlist) {
   if (pendingUnlock.has(sound)) return;
@@ -11,7 +22,7 @@ function syncAfterUnlock(sound, playlist) {
     pendingUnlock.delete(sound);
     if (game.playlists.get(playlist.id) !== playlist) return;
     sound.sync();
-    refresh();
+    refreshAfterUnlock();
   });
 }
 

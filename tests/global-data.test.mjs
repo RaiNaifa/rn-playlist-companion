@@ -1810,6 +1810,29 @@ test("a remote playback update waits for the player's audio unlock", async () =>
   assert.equal(sound.playing, true);
 });
 
+test("audio unlock refreshes the playlist directory once for many global sounds", async () => {
+  setup();
+  let unlock;
+  game.audio.locked = true;
+  game.audio.unlock = new Promise((resolve) => {
+    unlock = resolve;
+  });
+  const sounds = Array.from({ length: 100 }, (_, index) => ({ _id: `sound-${index}`, playing: false }));
+  let treeUpdates = 0;
+  let renders = 0;
+  game.playlists.initializeTree = () => treeUpdates++;
+  ui.playlists = { render: () => renders++ };
+  installInClient({ _id: "global", playing: false, sounds });
+  assert.equal(treeUpdates, 1);
+  assert.equal(renders, 1);
+
+  game.audio.locked = false;
+  unlock();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(treeUpdates, 2);
+  assert.equal(renders, 2);
+});
+
 test("a playing global Sound keeps its Playlist active for sequencing and player visibility", () => {
   setup();
   foundry.utils.mergeObject = (target, source) => Object.assign(target, source);
