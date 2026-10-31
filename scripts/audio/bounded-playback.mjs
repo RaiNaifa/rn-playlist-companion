@@ -1,5 +1,11 @@
 import { MODULE_ID, t } from "../core/context.mjs";
 import { readBounds } from "./bounds.mjs";
+import { repeatRange } from "./silence-data.mjs";
+
+const delayedRepeat = (sound) => {
+  const range = repeatRange(sound);
+  return Boolean(sound.repeat && range && range.max > 0);
+};
 
 const controllers = new WeakMap();
 const warned = new WeakSet();
@@ -22,7 +28,7 @@ export function installBoundedPlayback() {
     // A buffered section started without Repeat has a finite source duration.
     // Enabling Repeat while it plays cannot remove that duration, so start its
     // next cycle when the existing source ends instead of advancing the playlist.
-    if (this.playing && this.repeat && readBounds(this) && this.sound?.buffer) {
+    if (this.playing && this.repeat && !delayedRepeat(this) && readBounds(this) && this.sound?.buffer) {
       await this.sound.play();
       return;
     }
@@ -34,7 +40,7 @@ export function installBoundedPlayback() {
     if (bounds && this.playing && sound?.playing) {
       const controller = controllers.get(sound);
       // A streaming element must never use the browser's full-file loop.
-      sound.loop = Boolean(sound.buffer && this.repeat);
+      sound.loop = Boolean(sound.buffer && this.repeat && !delayedRepeat(this));
       if (controller?.fading) return;
       sound.fade(this.volume, { duration: 500 }).catch(console.error);
       return;
@@ -68,7 +74,7 @@ export function installBoundedPlayback() {
     let wasBounded = false;
     let completed = false;
     const finish = async () => {
-      if (completed || this.repeat || !this.playing || !this.parent?.isOwner) return;
+      if (completed || (this.repeat && !delayedRepeat(this)) || !this.playing || !this.parent?.isOwner) return;
       completed = true;
       dispose(sound);
       await this.parent._onSoundEnd(this);
@@ -94,7 +100,7 @@ export function installBoundedPlayback() {
           ? Math.max(bounds.start, options.offset)
           : bounds.start;
       const buffering = Boolean(sound.buffer);
-      const startedRepeated = Boolean(this.repeat);
+      const startedRepeated = Boolean(this.repeat && !delayedRepeat(this));
       // Foundry does not await HTMLAudioElement.play(). A quick stop at a short
       // boundary can reject its promise even though stopping was intentional.
       if (!buffering && sound.element?.play && !sound.element.__rnBoundedPlay) {
@@ -111,11 +117,14 @@ export function installBoundedPlayback() {
       }
       const playing = await originalPlay({
         ...options,
-        loop: buffering && this.repeat,
+        loop: buffering && this.repeat && !delayedRepeat(this),
         loopStart: bounds.start,
         loopEnd: bounds.end,
         offset,
-        duration: buffering && !this.repeat ? bounds.end - (resume ? sound.pausedTime : offset) : undefined,
+        duration:
+          buffering && (!this.repeat || delayedRepeat(this))
+            ? bounds.end - (resume ? sound.pausedTime : offset)
+            : undefined,
       });
       if (!playing.playing) return playing;
       let fading = false;
@@ -127,7 +136,7 @@ export function installBoundedPlayback() {
         if (controllers.get(sound) !== controller || !sound.playing) return;
         const position = sound.element ? sound.element.currentTime : sound.currentTime;
         if (!Number.isFinite(position)) return;
-        if (this.repeat) {
+        if (this.repeat && !delayedRepeat(this)) {
           const fade = currentFade();
           const wrapped = position < previousPosition || (sound.element && position >= bounds.end);
           if (position >= bounds.end) {

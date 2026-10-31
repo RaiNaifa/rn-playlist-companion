@@ -62,6 +62,12 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 - **Currently Playing** and Preview show time relative to the selected section instead of the full file.
 - Changing the file path leaves old boundaries inactive until they are checked or analyzed again.
 
+#### Silence Time
+
+- Unlike Find Silence, which trims silence at the edges of an audio file, enabling **Silence Time** adds pauses between the playback of playlist tracks and between repeats of a looping sound.
+- During silence, **Currently Playing** shows a countdown and playback controls.
+- Combine it with Random Playback to make your surroundings feel alive: a distant rumble of thunder, an unexpected owl call, or an eerie whisper.
+
 #### Random Playback
 
 - Playlists have a **Random Playback** mode. Each sound is selected at random without repeating the currently playing sound. This mode does not shuffle the order of sounds in the playlist.
@@ -139,6 +145,12 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 - При каждом запуске анализа файл полностью загружается и декодируется, поэтому длинные файлы могут потреблять много памяти.
 - В разделе **Сейчас играет** время отображается относительно выбранного участка, а не всего файла.
 - После изменения пути к файлу прежние границы не используются, пока их не проверить или не определить заново.
+
+#### Время тишины
+
+- В отличие от Поиска тишины, который отсекает тишину на границах файла, включение опции **Время тишины** позволяет добавить паузы между проигрыванием треков плейлиста и между повторами зацикленного звука.
+- Для времени тишины в **Сейчас играет** отображаются обратный отсчёт и элементы управления.
+- Сочетайте с режимом Случайного воспроизведения, чтобы заставить окружение жить своей жизнью: редкий раскат грома вдалеке, неожиданный крик совы или зловещий шёпот.
 
 #### Случайное воспроизведение
 

@@ -108,8 +108,21 @@ test("unknown properties and changed audio channels stop playback while preservi
   }
 });
 
-test("only the module's silence threshold flag is safe", () => {
+test("silence timing and threshold flags are safe configuration changes", () => {
   assert.equal(safeConfigChanges({ flags: { "rn-playlist-companion": { threshold: -40 } } }, true), true);
+  assert.equal(
+    safeConfigChanges(
+      { flags: { "rn-playlist-companion": { repeatSilence: { enabled: true, min: 1, max: 2 } } } },
+      true,
+    ),
+    true,
+  );
+  assert.equal(
+    safeConfigChanges({
+      flags: { "rn-playlist-companion": { silenceTime: { tracks: { enabled: true, min: 1, max: 2 } } } },
+    }),
+    true,
+  );
   assert.equal(safeConfigChanges({ flags: { "rn-playlist-companion": { bounds: {} } } }, true), false);
   assert.equal(safeConfigChanges({ flags: { otherModule: { setting: 1 } } }, true), false);
 });

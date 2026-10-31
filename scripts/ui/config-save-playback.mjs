@@ -45,7 +45,9 @@ export function safeConfigChanges(diff, sound = false) {
       Object.keys(value).length === 1 &&
       value[MODULE_ID] &&
       typeof value[MODULE_ID] === "object" &&
-      Object.keys(value[MODULE_ID]).every((field) => ["randomPlayback", "randomHistory"].includes(field))
+      Object.keys(value[MODULE_ID]).every((field) =>
+        ["randomPlayback", "randomHistory", "silenceTime", "silencePending"].includes(field),
+      )
     )
       continue;
     if (
@@ -56,8 +58,7 @@ export function safeConfigChanges(diff, sound = false) {
       Object.keys(value).length === 1 &&
       value[MODULE_ID] &&
       typeof value[MODULE_ID] === "object" &&
-      Object.keys(value[MODULE_ID] ?? {}).length === 1 &&
-      Object.hasOwn(value[MODULE_ID], "threshold")
+      Object.keys(value[MODULE_ID] ?? {}).every((field) => ["threshold", "repeatSilence"].includes(field))
     )
       continue;
     return false;

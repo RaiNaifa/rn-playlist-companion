@@ -58,6 +58,7 @@ export function installRandomPlayback() {
       changes.playing === false &&
       !changes.sounds?.some((sound) => sound.pausedTime != null) &&
       options.rnRandomHistory === undefined &&
+      !options.rnSilenceTransition &&
       changes.flags?.[MODULE_ID]?.randomHistory === undefined
     ) {
       return updateWithHistory(this, changes, []);
@@ -89,7 +90,7 @@ export function installRandomPlayback() {
 
   Playlist.prototype.playNext = function (soundId, options = {}) {
     if (!isRandomPlayback(this)) return original.playNext.call(this, soundId, options);
-    if (!this.playing || this.sounds.size < 2) return Promise.resolve(this);
+    if ((!this.playing && !options.rnSilenceAdvance) || this.sounds.size < 2) return Promise.resolve(this);
     const current = soundId ? this.sounds.get(soundId) : this.sounds.find((sound) => sound.playing);
     if (!current) return Promise.resolve(this);
     const history = historyFor(this);

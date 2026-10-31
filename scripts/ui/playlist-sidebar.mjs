@@ -1,4 +1,5 @@
 import { duckMusic } from "../audio/preview.mjs";
+import { pendingSilence } from "../audio/silence-data.mjs";
 import { error, isGlobal, isGlobalFolder, reportError, state, t } from "../core/context.mjs";
 import { folderBranch, moveBranchToGlobal, moveBranchToLocal, removeGlobal } from "../library/global-library.mjs";
 import { filterHiddenTree, hiddenIds, isHidden, setHidden } from "../library/visibility.mjs";
@@ -12,6 +13,7 @@ import {
   registerPreviewWidgetUpdates,
   syncPreviewWidget,
 } from "./preview-widget.mjs";
+import { decorateSilenceWidget, registerSilenceWidgetTimer } from "./silence-widget.mjs";
 import { decorateSoundChannelIcons } from "./sound-channel-icon.mjs";
 import { mountSoundWindows, patchSoundWindows, searchActive } from "./sound-window.mjs";
 
@@ -159,6 +161,7 @@ export function decorateDirectory(app) {
   const element = app.element;
   if (!element) return;
   syncPreviewWidget(element);
+  decorateSilenceWidget(element);
   decorateCurrentlyPlaying(element);
   decorateRestrictedPlaying(element);
   mountSoundWindows(app, element, () => {
@@ -278,6 +281,11 @@ export function decorateDirectory(app) {
 export function patchDirectory() {
   registerDescriptionTooltipUpdates();
   registerPreviewWidgetUpdates();
+  registerSilenceWidgetTimer((element) => {
+    decorateCurrentlyPlaying(element);
+    decorateRestrictedPlaying(element);
+    decorateNames(element);
+  });
   Hooks.on("updatePlaylistSound", (_sound, changes) => {
     if (!Object.hasOwn(changes, "channel")) return;
     for (const element of document.querySelectorAll(".playlists-sidebar")) decorateSoundChannelIcons(element);
@@ -294,7 +302,10 @@ export function patchDirectory() {
     await prepareDirectory.call(this, context, options);
     const playingIds = new Set(
       game.playlists
-        .filter((playlist) => playlist.playing || [...playlist.sounds].some((sound) => sound.playing))
+        .filter(
+          (playlist) =>
+            playlist.playing || pendingSilence(playlist) || [...playlist.sounds].some((sound) => sound.playing),
+        )
         .map((p) => p.id),
     );
     context.tree = filterHiddenTree(context.tree, {

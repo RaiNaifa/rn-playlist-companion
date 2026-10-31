@@ -2,6 +2,7 @@ import { installBoundedPlayback } from "./audio/bounded-playback.mjs";
 import { registerBufferDurationSettings } from "./audio/buffer-duration.mjs";
 import { registerPreviewSettings } from "./audio/preview.mjs";
 import { installRandomPlayback } from "./audio/random-playback.mjs";
+import { installSilencePlayback } from "./audio/silence-playback.mjs";
 import { MODULE_ID, reportError, state } from "./core/context.mjs";
 import { patchDocumentMethods } from "./foundry/document-bridge.mjs";
 import { onSocket } from "./foundry/socket-sync.mjs";
@@ -14,6 +15,7 @@ import { registerConfigSavePlayback } from "./ui/config-save-playback.mjs";
 import { registerPlayerPrivacySetting } from "./ui/player-privacy.mjs";
 import { patchDirectory } from "./ui/playlist-sidebar.mjs";
 import { registerReleaseNotesSettings, showReleaseNotesAfterUpdate } from "./ui/release-notes.mjs";
+import { registerSilenceConfig } from "./ui/silence-config.mjs";
 import { registerSoundBounds } from "./ui/sound-bounds.mjs";
 import { registerSoundWindowSettings } from "./ui/sound-window.mjs";
 
@@ -27,11 +29,13 @@ Hooks.once("init", () => {
   registerReleaseNotesSettings();
   registerBufferDurationSettings();
   registerSoundBounds();
+  registerSilenceConfig();
   registerConfigSavePlayback();
   registerRevisionControlSetting();
   installBoundedPlayback();
   patchDocumentMethods();
   installRandomPlayback();
+  installSilencePlayback();
   patchDirectory();
 });
 

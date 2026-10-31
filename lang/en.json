@@ -1,5 +1,21 @@
 {
   "RNPLAYCOMP": {
+    "Silence": {
+      "Title": "Silence Time",
+      "Tracks": "Between tracks",
+      "Repeats": "Between repeats",
+      "PersonalRepeats": "Personal Silence Time between repeats",
+      "Minimum": "Minimum",
+      "Maximum": "Maximum",
+      "SoundHint": "When enabled, overrides the playlist's silence time between repeats.",
+      "InvalidNumber": "Enter a non-negative number of seconds.",
+      "InvalidRange": "Minimum cannot exceed maximum.",
+      "Previous": "Previous sound",
+      "Next": "Next sound",
+      "Stop": "Stop playlist",
+      "StopSound": "Stop sound",
+      "CurrentlyPlaying": "Currently Playing"
+    },
     "Bounds": {
       "Title": "Silence Boundaries",
       "ChooseSection": "Choose playable section",

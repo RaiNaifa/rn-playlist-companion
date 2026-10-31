@@ -1,4 +1,5 @@
 import { stopPreviewForPlayback } from "../audio/preview.mjs";
+import { schedule as scheduleSilence } from "../audio/silence-playback.mjs";
 import { error, MODULE_ID, state } from "../core/context.mjs";
 
 const pendingUnlock = new WeakSet();
@@ -69,6 +70,7 @@ function withoutLiveFields({
     if (otherFlags[MODULE_ID]) {
       const moduleFlags = { ...otherFlags[MODULE_ID] };
       delete moduleFlags.randomPlayback;
+      delete moduleFlags.silencePending;
       if (Object.keys(moduleFlags).length) otherFlags[MODULE_ID] = moduleFlags;
       else delete otherFlags[MODULE_ID];
     }
@@ -93,7 +95,11 @@ function applyLiveChanges(playlist, data, { forceSync = false } = {}) {
   if (playlist._source.folder !== data.folder) playlistChanges.folder = data.folder;
   if ("playing" in data && playlist.playing !== data.playing) playlistChanges.playing = data.playing;
   if ("seed" in data && playlist.seed !== data.seed) playlistChanges.seed = data.seed;
-  if (Boolean(playlist.flags?.[MODULE_ID]?.randomPlayback) !== Boolean(data.flags?.[MODULE_ID]?.randomPlayback)) {
+  if (
+    JSON.stringify(playlist.flags?.[MODULE_ID]?.silencePending ?? null) !==
+      JSON.stringify(data.flags?.[MODULE_ID]?.silencePending ?? null) ||
+    Boolean(playlist.flags?.[MODULE_ID]?.randomPlayback) !== Boolean(data.flags?.[MODULE_ID]?.randomPlayback)
+  ) {
     playlistChanges.flags = data.flags ?? { [MODULE_ID]: { randomPlayback: false } };
   }
   for (const key of ["name", "description", "mode", "sorting", "fade"]) {
@@ -184,7 +190,10 @@ export function installInClient(data, options = {}) {
     console.error(`[${MODULE_ID}] ID collision with a world playlist: ${id}`);
     return false;
   }
-  if (old && applyLiveChanges(old, data, options)) return true;
+  if (old && applyLiveChanges(old, data, options)) {
+    scheduleSilence(old);
+    return true;
+  }
   if (old) for (const sound of old.sounds) sound.sound?.stop();
   const playlist = new foundry.documents.Playlist(data);
   game.playlists.set(id, playlist);
@@ -197,5 +206,6 @@ export function installInClient(data, options = {}) {
   if (!game.audio.locked) for (const sound of playlist.sounds) sound.sync();
   else for (const sound of playlist.sounds) syncAfterUnlock(sound, playlist);
   refresh();
+  scheduleSilence(playlist);
   return true;
 }

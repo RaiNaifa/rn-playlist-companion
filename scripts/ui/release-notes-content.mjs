@@ -3,6 +3,7 @@ export const RELEASE_NOTES = {
   en: {
     "0.3.2": {
       Added: [
+        "Configurable Silence Time between playlist tracks and repeats of a looping sound.",
         "Random playback mode for playlists: each sound is selected at random without repeating the currently playing sound.",
       ],
       Fixed: [
@@ -47,6 +48,7 @@ export const RELEASE_NOTES = {
   ru: {
     "0.3.2": {
       Добавлено: [
+        "Настраиваемое «Время тишины» между треками плейлиста и повторами зацикленного звука.",
         "Режим воспроизведения «Случайный» для плейлистов: каждый включаемый звук выбирается случайно, не повторяя при этом текущий.",
       ],
       Исправлено: [
