@@ -1,4 +1,4 @@
-import { duckMusic } from "../audio/preview.mjs";
+import { duckMusic, previewSound, stopPreview, togglePreviewPause } from "../audio/preview.mjs";
 import { pendingSilence } from "../audio/silence-data.mjs";
 import { error, isGlobal, isGlobalFolder, reportError, state, t } from "../core/context.mjs";
 import { folderBranch, moveBranchToGlobal, moveBranchToLocal, removeGlobal } from "../library/global-library.mjs";
@@ -19,12 +19,133 @@ import { mountSoundWindows, patchSoundWindows, searchActive } from "./sound-wind
 
 const uiState = { open: false, editing: false, showHidden: false, playingOpen: true };
 
-function decorateCurrentlyPlaying(element) {
+export async function stopPlaylistFully(playlist) {
+  await playlist.stopAll();
+  // Foundry can leave pausedTime intact for sounds that were paused before stopAll.
+  // Clear it so Stop All cannot be mistaken for a resumable pause.
+  const paused = [...playlist.sounds].filter((sound) => sound.pausedTime != null);
+  if (paused.length) {
+    await playlist.update({
+      playing: false,
+      sounds: paused.map((sound) => ({ _id: sound.id, playing: false, pausedTime: null })),
+    });
+  }
+}
+
+function decorateCurrentlyPlaying(element, app) {
   const widget = element.querySelector(".currently-playing");
   if (!widget) return;
   const header = widget.querySelector(":scope > .playlist-header");
   const list = widget.querySelector(":scope > .playlist-sounds, :scope > .expandable .playlist-sounds");
   if (!header || !list) return;
+  const pin = header.querySelector(":scope > .pin");
+  const pausable = [...game.playlists].flatMap((playlist) =>
+    playlist.isOwner ? [...playlist.sounds].filter((sound) => sound.playing || sound.pausedTime != null) : [],
+  );
+  const preview = previewSound();
+  const anyPlaying = pausable.some((sound) => sound.playing) || !!preview?.playing;
+  let pause = header.querySelector(":scope > .rn-pause-all");
+
+  if ((pausable.length || preview) && !pause) {
+    pause = document.createElement("button");
+    pause.type = "button";
+    pause.className = "inline-control icon fa-solid rn-pause-all";
+    pause.setAttribute("data-tooltip", "");
+    pause.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (pause.disabled) return;
+      pause.disabled = true;
+      try {
+        // In a mixed state, pause the playing sounds first. The next click resumes all paused sounds.
+        const shouldPause =
+          [...game.playlists].some(
+            (playlist) => playlist.isOwner && [...playlist.sounds].some((sound) => sound.playing),
+          ) || !!previewSound()?.playing;
+        const sounds = [...game.playlists].flatMap((playlist) =>
+          playlist.isOwner
+            ? [...playlist.sounds].filter((sound) =>
+                shouldPause ? sound.playing : !sound.playing && sound.pausedTime != null,
+              )
+            : [],
+        );
+        // Reuse Foundry's per-sound actions so it owns playback and pause persistence.
+        const actionName = shouldPause ? "soundPause" : "soundPlay";
+        const action = foundry.applications.sidebar.tabs.PlaylistDirectory.DEFAULT_OPTIONS.actions[actionName];
+        for (const sound of sounds) {
+          const button = [...list.querySelectorAll(`[data-action="${actionName}"]`)].find((candidate) => {
+            const row = candidate.closest(".sound");
+            return row?.dataset.playlistId === sound.parent.id && row.dataset.soundId === sound.id;
+          });
+          if (button && !button.disabled) await action.call(app, event, button);
+        }
+        const currentPreview = previewSound();
+        if (currentPreview && (shouldPause ? currentPreview.playing : !currentPreview.playing)) {
+          await togglePreviewPause();
+        }
+      } catch (cause) {
+        reportError(cause);
+      } finally {
+        pause.disabled = false;
+      }
+    });
+  }
+
+  if (pausable.length || preview) {
+    pause.classList.toggle("fa-pause", anyPlaying);
+    pause.classList.toggle("fa-circle-play", !anyPlaying);
+    pause.setAttribute("aria-label", t(anyPlaying ? "UI.PauseAll" : "UI.PlayAll"));
+  } else {
+    pause?.remove();
+  }
+
+  const canStop =
+    [...game.playlists].some(
+      (playlist) =>
+        playlist.isOwner &&
+        (playlist.playing ||
+          pendingSilence(playlist) ||
+          [...playlist.sounds].some((sound) => sound.playing || sound.pausedTime != null)),
+    ) || !!previewSound();
+  let stop = header.querySelector(":scope > .rn-stop-all");
+  if (canStop && !stop) {
+    stop = document.createElement("button");
+    stop.type = "button";
+    stop.className = "inline-control icon fa-solid fa-stop rn-stop-all";
+    stop.setAttribute("data-tooltip", "");
+    stop.setAttribute("aria-label", t("UI.StopAll"));
+    stop.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (stop.disabled) return;
+      stop.disabled = true;
+      try {
+        stopPreview({ fade: true });
+        const active = [...game.playlists].filter(
+          (playlist) =>
+            playlist.isOwner &&
+            (playlist.playing ||
+              pendingSilence(playlist) ||
+              [...playlist.sounds].some((sound) => sound.playing || sound.pausedTime != null)),
+        );
+        const results = await Promise.allSettled(active.map(stopPlaylistFully));
+        for (const result of results) if (result.status === "rejected") reportError(result.reason);
+      } catch (cause) {
+        reportError(cause);
+      } finally {
+        stop.disabled = false;
+      }
+    });
+  }
+  if (canStop && stop) {
+    if (pin) pin.before(stop);
+    else header.append(stop);
+  } else stop?.remove();
+  if (pausable.length || preview) {
+    if (stop) stop.before(pause);
+    else if (pin) pin.before(pause);
+    else header.append(pause);
+  }
   let expandable = widget.querySelector(":scope > .expandable");
   if (!expandable) {
     expandable = document.createElement("div");
@@ -42,7 +163,7 @@ function decorateCurrentlyPlaying(element) {
     icon.setAttribute("inert", "");
     header.prepend(icon);
     header.addEventListener("click", (event) => {
-      if (event.target.closest(".pin")) return;
+      if (event.target.closest(".pin, .rn-stop-all, .rn-pause-all")) return;
       uiState.playingOpen = !uiState.playingOpen;
       widget.classList.toggle("expanded", uiState.playingOpen);
     });
@@ -162,7 +283,7 @@ export function decorateDirectory(app) {
   if (!element) return;
   syncPreviewWidget(element);
   decorateSilenceWidget(element);
-  decorateCurrentlyPlaying(element);
+  decorateCurrentlyPlaying(element, app);
   decorateRestrictedPlaying(element);
   mountSoundWindows(app, element, () => {
     decorateSounds(element);
@@ -282,7 +403,7 @@ export function patchDirectory() {
   registerDescriptionTooltipUpdates();
   registerPreviewWidgetUpdates();
   registerSilenceWidgetTimer((element) => {
-    decorateCurrentlyPlaying(element);
+    decorateCurrentlyPlaying(element, ui.playlists);
     decorateRestrictedPlaying(element);
     decorateNames(element);
   });

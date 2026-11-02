@@ -187,6 +187,12 @@
   }
 
   .currently-playing {
+    > .playlist-header {
+      .rn-stop-all {
+        color: var(--color-warm-1);
+      }
+    }
+
     .playlist-sounds .sound > header {
       display: flex;
     }
