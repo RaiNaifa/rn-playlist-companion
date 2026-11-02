@@ -278,6 +278,33 @@ function stateMark(kind, icon, label) {
   return mark;
 }
 
+function decorateFolderPlayback(element) {
+  const status = new Map();
+  for (const playlist of game.playlists) {
+    const playing = [...playlist.sounds].some((sound) => sound.playing);
+    const paused = !playing && [...playlist.sounds].some((sound) => sound.pausedTime != null);
+    if (!playing && !paused) continue;
+    let folderId = playlist._source.folder;
+    const visited = new Set();
+    while (folderId && !visited.has(folderId)) {
+      visited.add(folderId);
+      const current = status.get(folderId) ?? { playing: false, paused: false };
+      current.playing ||= playing;
+      current.paused ||= paused;
+      status.set(folderId, current);
+      folderId = game.folders.get(folderId)?._source.folder;
+    }
+  }
+  for (const li of element.querySelectorAll(".directory-item.folder[data-folder-id]")) {
+    const icon = li.querySelector(":scope > .folder-header i.fa-folder-open");
+    if (!icon) continue;
+    const current = status.get(li.dataset.folderId);
+    icon.classList.toggle("rn-folder-playing", !!current?.playing);
+    icon.classList.toggle("fa-regular", !!current?.paused && !current.playing);
+    icon.classList.toggle("fa-solid", !current?.paused || !!current.playing);
+  }
+}
+
 export function decorateDirectory(app) {
   const element = app.element;
   if (!element) return;
@@ -296,6 +323,7 @@ export function decorateDirectory(app) {
   decorateNames(element);
   decorateDescriptions(element);
   decoratePreviewVolume(element);
+  decorateFolderPlayback(element);
   for (const li of element.querySelectorAll(
     ".directory-item.playlist[data-entry-id], .directory-item.folder[data-folder-id]",
   )) {
@@ -402,6 +430,11 @@ export function decorateDirectory(app) {
 export function patchDirectory() {
   registerDescriptionTooltipUpdates();
   registerPreviewWidgetUpdates();
+  const refreshFolders = () => {
+    for (const element of document.querySelectorAll(".playlists-sidebar")) decorateFolderPlayback(element);
+  };
+  Hooks.on("updatePlaylistSound", refreshFolders);
+  Hooks.on("updatePlaylist", refreshFolders);
   registerSilenceWidgetTimer((element) => {
     decorateCurrentlyPlaying(element, ui.playlists);
     decorateRestrictedPlaying(element);

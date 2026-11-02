@@ -138,6 +138,14 @@
   }
 
   .directory-list {
+    .folder > .folder-header {
+      .fa-folder-open {
+        &.rn-folder-playing {
+          color: var(--color-warm-1);
+        }
+      }
+    }
+
     .playlist-sounds.rn-windowed {
       gap: 0;
 
