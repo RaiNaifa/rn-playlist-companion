@@ -62,13 +62,18 @@ function entry(durationMs, soundId) {
 }
 
 async function startTrackGap(playlist, sound) {
-  const range = transitionRange(playlist);
-  if (!range || !allowedMode(playlist)) return false;
-  if (!isRandomPlayback(playlist) && !playlist._getNextSound?.(sound.id)) return false;
+  if (!allowedMode(playlist)) return false;
+  const next = isRandomPlayback(playlist)
+    ? [...playlist.sounds].filter((item) => item.id !== sound.id)
+    : playlist._getNextSound?.(sound.id);
+  const target = Array.isArray(next) ? next[Math.floor(Math.random() * next.length)] : next;
+  if (!target) return false;
+  const range = transitionRange(playlist, target);
+  if (!range) return false;
   const durationMs = drawDuration(range);
   if (!durationMs) return false;
   const state = stateFor(playlist);
-  state.tracks = entry(durationMs, sound.id);
+  state.tracks = { ...entry(durationMs, sound.id), targetId: target.id };
   await saveState(playlist, state, {
     playing: false,
     sounds: [{ _id: sound.id, playing: false, pausedTime: null }],
@@ -89,11 +94,12 @@ async function startRepeatGap(playlist, sound) {
   return true;
 }
 
-async function nextSound(playlist, sourceId, direction = 1) {
+async function nextSound(playlist, sourceId, direction = 1, targetId = null) {
   if (isRandomPlayback(playlist)) {
     if (playlist.sounds.size === 1) return playlist.playSound(playlist.sounds.get(sourceId));
-    return playlist.playNext(sourceId, { direction, rnSilenceAdvance: true });
+    return playlist.playNext(sourceId, { direction, rnSilenceAdvance: true, rnSilenceTarget: targetId });
   }
+  if (targetId && playlist.sounds.get(targetId)) return playlist.playSound(playlist.sounds.get(targetId));
   const method = direction < 0 ? "_getPreviousSound" : "_getNextSound";
   const sound = playlist[method]?.(sourceId);
   if (sound) return playlist.playSound(sound);
@@ -111,7 +117,7 @@ async function complete(playlist, kind, soundId, id) {
     await saveState(playlist, state);
     continuing.add(playlist);
     try {
-      await nextSound(playlist, soundId);
+      await nextSound(playlist, soundId, 1, current.targetId);
     } finally {
       continuing.delete(playlist);
     }

@@ -2,7 +2,9 @@ import { silenceSettings } from "../audio/silence-data.mjs";
 import { MODULE_ID, t } from "../core/context.mjs";
 
 function rangeForm(kind, value = {}, personal = false) {
-  const title = t(`Silence.${kind === "tracks" ? "Tracks" : personal ? "PersonalRepeats" : "Repeats"}`);
+  const title = t(
+    `Silence.${kind === "tracks" ? (personal ? "PersonalTracks" : "Tracks") : personal ? "PersonalRepeats" : "Repeats"}`,
+  );
   const min = Number.isFinite(Number(value.min)) && Number(value.min) >= 0 ? Number(value.min) : 0;
   const max = Number.isFinite(Number(value.max)) && Number(value.max) >= 0 ? Number(value.max) : 0;
   return `<div class="form-group stacked rn-silence-section" data-kind="${kind}">
@@ -34,28 +36,17 @@ function readRange(section) {
 function mount(app, element, sound = false) {
   if (!game.user.isGM) return;
   const form = app.form ?? (element.tagName === "FORM" ? element : element.querySelector("form"));
-  if (!form || form.querySelector(sound ? ".rn-silence-section" : ".rn-silence")) return;
-  const saved = sound ? app.document.flags?.[MODULE_ID]?.repeatSilence : silenceSettings(app.document);
+  if (!form || form.querySelector(".rn-silence")) return;
+  const saved = sound ? (app.document.flags?.[MODULE_ID] ?? {}) : silenceSettings(app.document);
   let section;
-  if (sound) {
-    const template = document.createElement("template");
-    template.innerHTML = rangeForm("repeat", saved, true);
-    section = template.content.firstElementChild;
-  } else {
-    section = document.createElement("fieldset");
-    section.className = "rn-silence";
-    section.innerHTML = `<legend class="control"><button class="plain rn-silence-toggle" type="button" aria-expanded="false"><i class="fa-solid fa-angle-right rn-silence-chevron" aria-hidden="true"></i><span>${t("Silence.Title")}</span></button></legend>
-    ${rangeForm("tracks", saved.tracks)}${rangeForm("repeat", saved.repeat)}`;
-  }
+  section = document.createElement("fieldset");
+  section.className = "rn-silence";
+  section.innerHTML = `<legend class="control"><button class="plain rn-silence-toggle" type="button" aria-expanded="false"><i class="fa-solid fa-angle-right rn-silence-chevron" aria-hidden="true"></i><span>${t("Silence.Title")}</span></button></legend>
+    ${rangeForm("tracks", sound ? saved.trackSilence : saved.tracks, sound)}${rangeForm("repeat", sound ? saved.repeatSilence : saved.repeat, sound)}`;
   const anchor = sound ? form.querySelector(".rn-bounds") : form.querySelector('[name="fade"]')?.closest(".form-group");
-  if (sound && anchor) anchor.querySelector(":scope > legend")?.after(section);
+  if (sound && anchor) anchor.before(section);
   else if (anchor) anchor.after(section);
   else form.querySelector("footer")?.before(section);
-  if (sound && section.isConnected) {
-    const divider = document.createElement("hr");
-    divider.className = "rn-silence-divider";
-    section.after(divider);
-  }
   if (!sound) installPlaylistScroll(form);
   const toggle = section.querySelector(".rn-silence-toggle");
   toggle?.addEventListener("click", () => {
@@ -63,7 +54,7 @@ function mount(app, element, sound = false) {
     section.dataset.expanded = String(expanded);
     toggle.setAttribute("aria-expanded", String(expanded));
   });
-  for (const range of sound ? [section] : section.querySelectorAll(".rn-silence-section")) {
+  for (const range of section.querySelectorAll(".rn-silence-section")) {
     const checkbox = range.querySelector('input[type="checkbox"]');
     const refresh = () => range.classList.toggle("rn-silence-disabled", !checkbox.checked);
     checkbox.addEventListener("change", refresh);
@@ -117,12 +108,14 @@ export function registerSilenceConfig() {
     const original = Sheet.prototype._processFormData;
     Sheet.prototype._processFormData = function (event, form, formData) {
       const data = original.call(this, event, form, formData);
-      const panel = form.querySelector(sound ? ".rn-silence-section" : ".rn-silence");
+      const panel = form.querySelector(".rn-silence");
       if (!panel) return data;
       data.flags ??= {};
       data.flags[MODULE_ID] ??= {};
-      if (sound) data.flags[MODULE_ID].repeatSilence = readRange(panel);
-      else
+      if (sound) {
+        data.flags[MODULE_ID].trackSilence = readRange(panel.querySelector('[data-kind="tracks"]'));
+        data.flags[MODULE_ID].repeatSilence = readRange(panel.querySelector('[data-kind="repeat"]'));
+      } else
         data.flags[MODULE_ID].silenceTime = {
           tracks: readRange(panel.querySelector('[data-kind="tracks"]')),
           repeat: readRange(panel.querySelector('[data-kind="repeat"]')),

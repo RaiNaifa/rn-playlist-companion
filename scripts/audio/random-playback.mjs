@@ -100,7 +100,9 @@ export function installRandomPlayback() {
       if (!selected) return Promise.resolve(this);
     } else {
       const candidates = [...this.sounds].filter((sound) => sound.id !== current.id);
-      selected = candidates[Math.floor(Math.random() * candidates.length)];
+      selected =
+        candidates.find((sound) => sound.id === options.rnSilenceTarget) ??
+        candidates[Math.floor(Math.random() * candidates.length)];
       history.push(current.id);
       if (history.length > RANDOM_HISTORY_LIMIT) history.shift();
     }

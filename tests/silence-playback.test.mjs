@@ -96,6 +96,19 @@ test("fixed ranges and per-sound overrides select the effective interval", () =>
   assert.equal(drawDuration(repeatRange(playlist.sounds.get("a"))), 4000);
   playlist.sounds.get("a").flags[MODULE_ID] = { repeatSilence: { enabled: true, min: 1, max: 1 } };
   assert.equal(drawDuration(repeatRange(playlist.sounds.get("a"))), 1000);
+  playlist.sounds.get("b").flags[MODULE_ID] = { trackSilence: { enabled: true, min: 3, max: 3 } };
+  assert.equal(drawDuration(transitionRange(playlist, playlist.sounds.get("b"))), 3000);
+  playlist.sounds.get("b").flags[MODULE_ID].trackSilence.enabled = false;
+  assert.equal(drawDuration(transitionRange(playlist, playlist.sounds.get("b"))), 2000);
+});
+
+test("an incoming sound's personal silence sets its transition deadline", async () => {
+  const playlist = setup({ tracks: { enabled: true, min: 30, max: 30 } });
+  playlist.sounds.get("b").flags[MODULE_ID] = { trackSilence: { enabled: true, min: 5, max: 5 } };
+  await playlist._onSoundEnd(playlist.sounds.get("a"));
+  assert.equal(playlist.flags[MODULE_ID].silencePending.tracks.durationMs, 5000);
+  assert.equal(playlist.flags[MODULE_ID].silencePending.tracks.targetId, "b");
+  await playlist.stopAll();
 });
 
 test("stopping a playlist removes its scheduled transition", async () => {

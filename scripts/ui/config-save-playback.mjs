@@ -58,7 +58,9 @@ export function safeConfigChanges(diff, sound = false) {
       Object.keys(value).length === 1 &&
       value[MODULE_ID] &&
       typeof value[MODULE_ID] === "object" &&
-      Object.keys(value[MODULE_ID] ?? {}).every((field) => ["threshold", "repeatSilence"].includes(field))
+      Object.keys(value[MODULE_ID] ?? {}).every((field) =>
+        ["threshold", "repeatSilence", "trackSilence"].includes(field),
+      )
     )
       continue;
     return false;

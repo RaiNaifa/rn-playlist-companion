@@ -5,6 +5,7 @@
       "Tracks": "Between tracks",
       "Repeats": "Between repeats",
       "PersonalRepeats": "Personal Silence Time between repeats",
+      "PersonalTracks": "Personal Silence Time after previous track",
       "Minimum": "Minimum",
       "Maximum": "Maximum",
       "SoundHint": "When enabled, overrides the playlist's silence time between repeats.",

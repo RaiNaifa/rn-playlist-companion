@@ -175,7 +175,9 @@ function mountBounds(app, element) {
     </div>
     <p class="hint rn-bound-status" role="status"></p>
     <div class="rn-bound-actions"><button class="rn-bound-analyze" type="button">${t("Bounds.Analyze")}</button><button class="rn-bound-reset" type="button">${t("Bounds.Reset")}</button></div>`;
-  form.querySelector('[name="fade"]')?.closest(".form-group")?.after(section);
+  const silence = form.querySelector(".rn-silence");
+  if (silence) silence.after(section);
+  else form.querySelector('[name="fade"]')?.closest(".form-group")?.after(section);
   if (!section.isConnected) form.querySelector("footer")?.before(section);
   installSoundScroll(form);
   const start = section.querySelector(".rn-bound-start");

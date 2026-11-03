@@ -20,8 +20,9 @@ export function repeatRange(sound) {
   return own?.enabled ? enabledRange(own) : enabledRange(silenceSettings(sound?.parent).repeat);
 }
 
-export function transitionRange(playlist) {
-  return enabledRange(silenceSettings(playlist).tracks);
+export function transitionRange(playlist, nextSound = null) {
+  const own = nextSound?.flags?.[MODULE_ID]?.trackSilence;
+  return own?.enabled ? enabledRange(own) : enabledRange(silenceSettings(playlist).tracks);
 }
 
 export function drawDuration(range) {
