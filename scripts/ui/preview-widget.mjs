@@ -6,9 +6,8 @@ import {
   previewSound,
   previewVolume,
   togglePreview,
-  togglePreviewPause,
 } from "../audio/preview.mjs";
-import { reportError, t } from "../core/context.mjs";
+import { t } from "../core/context.mjs";
 import { decorateDescriptions } from "./description-tooltip.mjs";
 import { decorateNames } from "./name-marquee.mjs";
 import { soundChannelIconClass } from "./sound-channel-icon.mjs";
@@ -125,17 +124,6 @@ export function syncPreviewWidget(element) {
   playback.innerHTML =
     '<div class="sound-timer"><span class="current">0:00</span><span class="sep"> / </span><span class="duration">0:00</span></div><i class="volume-icon fa-fw fa-solid fa-volume-low" inert></i>';
   playback.append(createPreviewVolumeSlider());
-  const pause = document.createElement("button");
-  pause.type = "button";
-  pause.className = `inline-control sound-control pause icon fa-solid fa-${previewSound()?.playing ? "pause" : "play"}`;
-  pause.setAttribute("data-tooltip", "");
-  pause.setAttribute("aria-label", game.i18n.localize("PLAYLIST.SoundPause"));
-  pause.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    togglePreviewPause().catch(reportError);
-  });
-  playback.append(pause);
   row.append(header, playback);
   list.append(row);
   widget.hidden = false;

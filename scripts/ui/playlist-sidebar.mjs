@@ -1,4 +1,4 @@
-import { duckMusic, previewSound, stopPreview, togglePreviewPause } from "../audio/preview.mjs";
+import { duckMusic, previewSound, stopPreview } from "../audio/preview.mjs";
 import { pendingSilence } from "../audio/silence-data.mjs";
 import { error, isGlobal, isGlobalFolder, reportError, state, t } from "../core/context.mjs";
 import { folderBranch, moveBranchToGlobal, moveBranchToLocal, removeGlobal } from "../library/global-library.mjs";
@@ -43,11 +43,10 @@ function decorateCurrentlyPlaying(element, app) {
   const pausable = [...game.playlists].flatMap((playlist) =>
     playlist.isOwner ? [...playlist.sounds].filter((sound) => sound.playing || sound.pausedTime != null) : [],
   );
-  const preview = previewSound();
-  const anyPlaying = pausable.some((sound) => sound.playing) || !!preview?.playing;
+  const anyPlaying = pausable.some((sound) => sound.playing);
   let pause = header.querySelector(":scope > .rn-pause-all");
 
-  if ((pausable.length || preview) && !pause) {
+  if (pausable.length && !pause) {
     pause = document.createElement("button");
     pause.type = "button";
     pause.className = "inline-control icon fa-solid rn-pause-all";
@@ -59,10 +58,9 @@ function decorateCurrentlyPlaying(element, app) {
       pause.disabled = true;
       try {
         // In a mixed state, pause the playing sounds first. The next click resumes all paused sounds.
-        const shouldPause =
-          [...game.playlists].some(
-            (playlist) => playlist.isOwner && [...playlist.sounds].some((sound) => sound.playing),
-          ) || !!previewSound()?.playing;
+        const shouldPause = [...game.playlists].some(
+          (playlist) => playlist.isOwner && [...playlist.sounds].some((sound) => sound.playing),
+        );
         const sounds = [...game.playlists].flatMap((playlist) =>
           playlist.isOwner
             ? [...playlist.sounds].filter((sound) =>
@@ -80,10 +78,6 @@ function decorateCurrentlyPlaying(element, app) {
           });
           if (button && !button.disabled) await action.call(app, event, button);
         }
-        const currentPreview = previewSound();
-        if (currentPreview && (shouldPause ? currentPreview.playing : !currentPreview.playing)) {
-          await togglePreviewPause();
-        }
       } catch (cause) {
         reportError(cause);
       } finally {
@@ -92,7 +86,7 @@ function decorateCurrentlyPlaying(element, app) {
     });
   }
 
-  if (pausable.length || preview) {
+  if (pausable.length) {
     pause.classList.toggle("fa-pause", anyPlaying);
     pause.classList.toggle("fa-circle-play", !anyPlaying);
     pause.setAttribute("aria-label", t(anyPlaying ? "UI.PauseAll" : "UI.PlayAll"));
@@ -142,7 +136,7 @@ function decorateCurrentlyPlaying(element, app) {
     if (pin) pin.before(stop);
     else header.append(stop);
   } else stop?.remove();
-  if (pausable.length || preview) {
+  if (pausable.length) {
     if (stop) stop.before(pause);
     else if (pin) pin.before(pause);
     else header.append(pause);

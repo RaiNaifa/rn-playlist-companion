@@ -81,18 +81,6 @@ export function previewSound() {
   return sound;
 }
 
-export async function togglePreviewPause() {
-  if (!sound) return;
-  if (sound.playing) {
-    sound.pause();
-  } else if (sound.pausedTime !== undefined) {
-    await sound.play();
-    scheduleEndFade(sound);
-  }
-  applyDucking();
-  notify();
-}
-
 function scheduleEndFade(currentSound) {
   if (!fadeDuration || !Number.isFinite(currentSound.duration)) return;
   const end = readBounds(previewDocument, currentSound.duration)?.end ?? currentSound.duration;
