@@ -13,6 +13,7 @@ import { registerVisibilitySettings } from "./library/visibility.mjs";
 import { registerRevisionControlSetting } from "./storage/revision-control.mjs";
 import { registerArchiveSettings } from "./ui/archive-dialog.mjs";
 import { registerConfigSavePlayback } from "./ui/config-save-playback.mjs";
+import { registerParameterButtonColors } from "./ui/parameter-button-colors.mjs";
 import { registerPlayerPrivacySetting } from "./ui/player-privacy.mjs";
 import { patchDirectory } from "./ui/playlist-sidebar.mjs";
 import { registerReleaseNotesSettings, showReleaseNotesAfterUpdate } from "./ui/release-notes.mjs";
@@ -25,6 +26,7 @@ Hooks.once("init", () => {
   registerConflictSettings();
   registerVisibilitySettings();
   registerPlayerPrivacySetting();
+  registerParameterButtonColors();
   registerPreviewSettings();
   registerSoundWindowSettings();
   registerReleaseNotesSettings();

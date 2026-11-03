@@ -824,3 +824,38 @@
     }
   }
 }
+
+html.rn-info-parameter-buttons {
+  .playlists-sidebar {
+    .sound > header > .sound-controls {
+      button[data-action="soundRepeat"],
+      .rn-queue-link {
+        --button-text-color: var(--color-text-primary);
+        color: var(--button-text-color);
+      }
+
+      button[data-action="soundRepeat"] {
+        &:not(.inactive) {
+          --button-text-color: var(--color-level-info);
+        }
+      }
+
+      .rn-queue-link {
+        &[aria-pressed="true"] {
+          --button-text-color: var(--color-level-info);
+        }
+      }
+    }
+
+    .rn-queue-sound > header > .sound-controls {
+      button.fa-arrows-rotate {
+        --button-text-color: var(--color-text-primary);
+        color: var(--button-text-color);
+
+        &:not(.inactive) {
+          --button-text-color: var(--color-level-info);
+        }
+      }
+    }
+  }
+}
