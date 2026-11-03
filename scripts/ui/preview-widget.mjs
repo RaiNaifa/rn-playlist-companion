@@ -71,7 +71,7 @@ function addPreviewButton(controls, playlistSound) {
 }
 
 export function syncPreviewWidget(element) {
-  const widget = element.querySelector(".currently-playing");
+  const widget = element.querySelector(".currently-playing:not(.rn-queue)");
   const list = widget?.querySelector(".playlist-sounds");
   if (!list) return;
   list.querySelector(".rn-preview-playing")?.remove();
@@ -152,8 +152,10 @@ function updatePreviewButtons() {
 }
 
 export function decorateSounds(element) {
-  for (const button of element.querySelectorAll(".currently-playing .rn-preview")) button.remove();
-  for (const row of element.querySelectorAll(".currently-playing .sound[data-playlist-id][data-sound-id]")) {
+  for (const button of element.querySelectorAll(".currently-playing:not(.rn-queue) .rn-preview")) button.remove();
+  for (const row of element.querySelectorAll(
+    ".currently-playing:not(.rn-queue) .sound[data-playlist-id][data-sound-id]",
+  )) {
     if (row.dataset.soundUuid !== activePreview()) continue;
     const controls = row.querySelector(":scope > header > .sound-controls");
     const playlistSound = game.playlists.get(row.dataset.playlistId)?.sounds.get(row.dataset.soundId);

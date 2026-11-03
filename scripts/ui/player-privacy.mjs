@@ -44,7 +44,7 @@ export function filterRestrictedTree(node) {
 }
 
 export function decorateRestrictedPlaying(element) {
-  for (const row of element.querySelectorAll(".currently-playing .sound[data-playlist-id]")) {
+  for (const row of element.querySelectorAll(".currently-playing:not(.rn-queue) .sound[data-playlist-id]")) {
     const playlist = game.playlists.get(row.dataset.playlistId);
     row.classList.toggle("rn-restricted-playing", !!playlist && restrictedPlaylist(playlist));
   }

@@ -71,7 +71,7 @@ function pendingEntries() {
 }
 
 export function decorateSilenceWidget(element, entries = pendingEntries()) {
-  let widget = element.querySelector(".currently-playing");
+  let widget = element.querySelector(".currently-playing:not(.rn-queue)");
   if (!widget && entries.length) {
     widget = document.createElement("section");
     widget.className = "currently-playing rn-silence-only expanded";
@@ -98,7 +98,7 @@ export function registerSilenceWidgetTimer(decorate) {
     // Foundry may not rerender Currently Playing when the last audible sound ends.
     const entries = pendingEntries();
     for (const element of document.querySelectorAll(".playlists-sidebar")) {
-      const rows = [...element.querySelectorAll(".currently-playing .rn-silence-playing")];
+      const rows = [...element.querySelectorAll(".currently-playing:not(.rn-queue) .rn-silence-playing")];
       const current = new Set(
         rows.map((row) => `${row.dataset.playlistId}:${row.dataset.soundId ?? ""}:${row.dataset.pendingId}`),
       );
@@ -108,7 +108,7 @@ export function registerSilenceWidgetTimer(decorate) {
       if (
         current.size !== expected.size ||
         [...expected].some((key) => !current.has(key)) ||
-        (entries.length && element.querySelector(".currently-playing")?.hidden)
+        (entries.length && element.querySelector(".currently-playing:not(.rn-queue)")?.hidden)
       ) {
         decorateSilenceWidget(element, entries);
         decorate(element);

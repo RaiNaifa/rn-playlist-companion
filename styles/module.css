@@ -1,6 +1,12 @@
 .playlists-sidebar {
   .sound > header > .sound-controls {
-    flex-basis: 48px;
+    flex-basis: auto;
+
+    .rn-queue-link {
+      &[aria-pressed="true"] {
+        color: var(--color-text-accent);
+      }
+    }
 
     .rn-preview.rn-previewing {
       color: var(--color-text-accent);
@@ -194,7 +200,7 @@
     }
   }
 
-  .currently-playing {
+  :is(.currently-playing, .rn-queue) {
     > .playlist-header {
       .rn-stop-all {
         color: var(--color-warm-1);

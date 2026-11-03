@@ -1,6 +1,7 @@
 import { installBoundedPlayback } from "./audio/bounded-playback.mjs";
 import { registerBufferDurationSettings } from "./audio/buffer-duration.mjs";
 import { registerPreviewSettings } from "./audio/preview.mjs";
+import { installQueuePlayback } from "./audio/queue.mjs";
 import { installRandomPlayback } from "./audio/random-playback.mjs";
 import { installSilencePlayback } from "./audio/silence-playback.mjs";
 import { MODULE_ID, reportError, state } from "./core/context.mjs";
@@ -36,6 +37,7 @@ Hooks.once("init", () => {
   patchDocumentMethods();
   installRandomPlayback();
   installSilencePlayback();
+  installQueuePlayback();
   patchDirectory();
 });
 

@@ -173,6 +173,12 @@
       "Unresolved": "An ID conflict remains unresolved. The local item is available. Reopen the choice in module settings."
     },
     "UI": {
+      "Queue": "Play Queue",
+      "AddToQueue": "Add Sound to Queue",
+      "RemoveFromQueue": "Remove from Queue",
+      "LinkQueue": "Link Sound to Queue",
+      "NextQueuedSound": "Next Sound",
+      "ClearQueue": "Clear Queue",
       "RandomMode": "Random Playback",
       "OpenArchive": "Global archive",
       "ResolveConflicts": "Resolve conflicts manually",

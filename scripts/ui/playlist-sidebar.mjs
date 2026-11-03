@@ -13,6 +13,7 @@ import {
   registerPreviewWidgetUpdates,
   syncPreviewWidget,
 } from "./preview-widget.mjs";
+import { decorateQueue } from "./queue-widget.mjs";
 import { decorateSilenceWidget, registerSilenceWidgetTimer } from "./silence-widget.mjs";
 import { decorateSoundChannelIcons } from "./sound-channel-icon.mjs";
 import { mountSoundWindows, patchSoundWindows, searchActive } from "./sound-window.mjs";
@@ -33,7 +34,7 @@ export async function stopPlaylistFully(playlist) {
 }
 
 function decorateCurrentlyPlaying(element, app) {
-  const widget = element.querySelector(".currently-playing");
+  const widget = element.querySelector(".currently-playing:not(.rn-queue)");
   if (!widget) return;
   const header = widget.querySelector(":scope > .playlist-header");
   const list = widget.querySelector(":scope > .playlist-sounds, :scope > .expandable .playlist-sounds");
@@ -308,9 +309,12 @@ function decorateFolderPlayback(element) {
 export function decorateDirectory(app) {
   const element = app.element;
   if (!element) return;
+  // A partial Foundry render may leave the previous queue in place before the new playing block.
+  element.querySelector(".rn-queue")?.remove();
   syncPreviewWidget(element);
   decorateSilenceWidget(element);
   decorateCurrentlyPlaying(element, app);
+  decorateQueue(element);
   decorateRestrictedPlaying(element);
   mountSoundWindows(app, element, () => {
     decorateSounds(element);
