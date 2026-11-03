@@ -845,6 +845,13 @@ html.rn-info-parameter-buttons {
           --button-text-color: var(--color-level-info);
         }
       }
+
+      button[data-action="soundRepeat"],
+      .rn-queue-link {
+        &:hover {
+          --button-text-color: var(--color-warm-1);
+        }
+      }
     }
 
     .rn-queue-sound > header > .sound-controls {
@@ -854,6 +861,10 @@ html.rn-info-parameter-buttons {
 
         &:not(.inactive) {
           --button-text-color: var(--color-level-info);
+        }
+
+        &:hover {
+          --button-text-color: var(--color-warm-1);
         }
       }
     }
