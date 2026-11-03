@@ -45,7 +45,7 @@ export function toggleQueueLink(sound) {
   });
 }
 
-export async function playQueueNext() {
+async function startQueuedSound(index) {
   const current = queueState();
   const linked = queueSound(current.linked);
   // Unlink before stopping: a forced stop must never be mistaken for a natural transition.
@@ -56,8 +56,13 @@ export async function playQueueNext() {
   if (linked?.playing) await linked.parent.stopSound(linked);
   let next;
   await changeQueue((state) => {
-    while (state.entries.length && !next) {
-      const entry = state.entries.shift();
+    if (index == null) {
+      while (state.entries.length && !next) {
+        const entry = state.entries.shift();
+        if (queueSound(entry)) next = entry;
+      }
+    } else {
+      const [entry] = state.entries.splice(index, 1);
       if (queueSound(entry)) next = entry;
     }
     state.linked = next ?? null;
@@ -67,16 +72,12 @@ export async function playQueueNext() {
   if (sound) await sound.parent.playSound(sound);
 }
 
-export async function playQueueEntry(index) {
-  const entry = queueState().entries[index];
-  const sound = queueSound(entry);
-  if (!sound) return;
-  await changeQueue((state) => {
-    state.entries.splice(index, 1);
-    state.linked = entry;
-    return state;
-  });
-  await sound.parent.playSound(sound);
+export function playQueueNext() {
+  return startQueuedSound(null);
+}
+
+export function playQueueEntry(index) {
+  return startQueuedSound(index);
 }
 
 export function installQueuePlayback() {
