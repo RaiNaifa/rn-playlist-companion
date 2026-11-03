@@ -139,6 +139,10 @@ export function decorateQueue(element) {
     ".currently-playing:not(.rn-queue) .sound[data-playlist-id][data-sound-id]",
   )) {
     const controls = row.querySelector(":scope > header > .sound-controls");
+    if (row.classList.contains("rn-preview-playing")) {
+      controls?.querySelector(".rn-queue-link")?.remove();
+      continue;
+    }
     const sound = game.playlists.get(row.dataset.playlistId)?.sounds.get(row.dataset.soundId);
     if (!controls || !sound || controls.querySelector(".rn-queue-link")) continue;
     const link = button("fa-right-to-bracket", t("UI.LinkQueue"), () => toggleQueueLink(sound));
