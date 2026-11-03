@@ -185,6 +185,7 @@
       "NextQueuedSound": "Следующий звук",
       "ClearQueue": "Очистить очередь",
       "RandomMode": "Случайный",
+      "LoopPlaylist": "Повторение плейлиста",
       "OpenArchive": "Архив глобальных плейлистов",
       "ResolveConflicts": "Ручное разрешение конфликтов",
       "ResolveConflictsButton": "Разрешить конфликты",

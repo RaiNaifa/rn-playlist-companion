@@ -44,6 +44,7 @@ function setup({ repeat = false, tracks = null, repeats = null } = {}) {
             { id: "b", name: "B", playing: false, repeat: false, flags: {}, parent: this },
           ];
           this.sounds.get = (id) => this.sounds.find((sound) => sound.id === id);
+          this.playbackOrder = ["a", "b"];
         }
         async update(changes) {
           if (changes.flags?.[MODULE_ID]) Object.assign(this.flags[MODULE_ID], changes.flags[MODULE_ID]);
@@ -109,6 +110,52 @@ test("an incoming sound's personal silence sets its transition deadline", async 
   assert.equal(playlist.flags[MODULE_ID].silencePending.tracks.durationMs, 5000);
   assert.equal(playlist.flags[MODULE_ID].silencePending.tracks.targetId, "b");
   await playlist.stopAll();
+});
+
+test("a sequential playlist with looping disabled stops after its final sound", async () => {
+  const playlist = setup();
+  playlist.flags[MODULE_ID].loopPlaylist = false;
+  playlist.sounds.get("a").playing = false;
+  playlist.sounds.get("b").playing = true;
+  await playlist._onSoundEnd(playlist.sounds.get("b"));
+  assert.equal(playlist.playing, false);
+  assert.equal(playlist.sounds.get("b").playing, false);
+  assert.equal(playlist.nativeEnd, undefined);
+});
+
+test("a sequential playlist does not schedule a wraparound silence when looping is disabled", async () => {
+  const playlist = setup({ tracks: { enabled: true, min: 30, max: 30 } });
+  playlist.flags[MODULE_ID].loopPlaylist = false;
+  playlist.sounds.get("a").playing = false;
+  playlist.sounds.get("b").playing = true;
+  await playlist._onSoundEnd(playlist.sounds.get("b"));
+  assert.equal(playlist.playing, false);
+  assert.equal(playlist.flags[MODULE_ID].silencePending, undefined);
+});
+
+test("the final sound follows Foundry playback order rather than collection order", async () => {
+  const playlist = setup();
+  playlist.flags[MODULE_ID].loopPlaylist = false;
+  playlist.sounds.reverse();
+  await playlist._onSoundEnd(playlist.sounds.get("a"));
+  assert.equal(playlist.nativeEnd, true);
+  assert.equal(playlist.playing, true);
+  await playlist._onSoundEnd(playlist.sounds.get("b"));
+  assert.equal(playlist.playing, false);
+});
+
+test("shuffle ignores the playlist loop option", async () => {
+  const playlist = setup();
+  playlist.mode = CONST.PLAYLIST_MODES.SHUFFLE;
+  playlist.flags[MODULE_ID].loopPlaylist = false;
+  await playlist._onSoundEnd(playlist.sounds.get("b"));
+  assert.equal(playlist.nativeEnd, true);
+});
+
+test("sequential playlists loop by default", async () => {
+  const playlist = setup();
+  await playlist._onSoundEnd(playlist.sounds.get("b"));
+  assert.equal(playlist.nativeEnd, true);
 });
 
 test("stopping a playlist removes its scheduled transition", async () => {

@@ -46,7 +46,7 @@ export function safeConfigChanges(diff, sound = false) {
       value[MODULE_ID] &&
       typeof value[MODULE_ID] === "object" &&
       Object.keys(value[MODULE_ID]).every((field) =>
-        ["randomPlayback", "randomHistory", "silenceTime", "silencePending"].includes(field),
+        ["randomPlayback", "randomHistory", "silenceTime", "silencePending", "loopPlaylist"].includes(field),
       )
     )
       continue;

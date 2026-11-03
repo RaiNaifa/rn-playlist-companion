@@ -15,6 +15,7 @@ import { registerArchiveSettings } from "./ui/archive-dialog.mjs";
 import { registerConfigSavePlayback } from "./ui/config-save-playback.mjs";
 import { registerParameterButtonColors } from "./ui/parameter-button-colors.mjs";
 import { registerPlayerPrivacySetting } from "./ui/player-privacy.mjs";
+import { registerPlaylistLoop } from "./ui/playlist-loop.mjs";
 import { patchDirectory } from "./ui/playlist-sidebar.mjs";
 import { registerReleaseNotesSettings, showReleaseNotesAfterUpdate } from "./ui/release-notes.mjs";
 import { registerSilenceConfig } from "./ui/silence-config.mjs";
@@ -32,6 +33,7 @@ Hooks.once("init", () => {
   registerReleaseNotesSettings();
   registerBufferDurationSettings();
   registerSoundBounds();
+  registerPlaylistLoop();
   registerSilenceConfig();
   registerConfigSavePlayback();
   registerRevisionControlSetting();

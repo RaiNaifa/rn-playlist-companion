@@ -185,6 +185,7 @@
       "NextQueuedSound": "Next Sound",
       "ClearQueue": "Clear Queue",
       "RandomMode": "Random Playback",
+      "LoopPlaylist": "Loop Playlist",
       "OpenArchive": "Global archive",
       "ResolveConflicts": "Resolve conflicts manually",
       "ResolveConflictsButton": "Resolve conflicts",

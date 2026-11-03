@@ -35,6 +35,15 @@ function allowedMode(playlist) {
   );
 }
 
+function endsWithoutLoop(playlist, sound) {
+  // Shuffle can change its seeded order when playback state changes, so this option only governs sequential playback.
+  if (playlist.mode !== CONST.PLAYLIST_MODES.SEQUENTIAL || isRandomPlayback(playlist)) return false;
+  if (playlist.flags?.[MODULE_ID]?.loopPlaylist !== false) return false;
+  // The collection order can differ from Foundry's sorted playback order.
+  const order = playlist.playbackOrder;
+  return Array.isArray(order) && order.length > 0 && order.at(-1) === sound.id;
+}
+
 function stateFor(playlist) {
   const state = pendingSilence(playlist);
   return { tracks: state?.tracks ?? null, repeats: { ...state?.repeats } };
@@ -263,6 +272,13 @@ export function installSilencePlayback() {
             { sounds: [{ _id: sound.id, playing: true, pausedTime: null }] },
             { diff: false, forceSync: true },
           );
+        }
+        // Stop before scheduling a track gap - otherwise the gap would wrap back to the first sound.
+        if (endsWithoutLoop(this, sound)) {
+          return this.update({
+            playing: false,
+            sounds: [{ _id: sound.id, playing: false, pausedTime: null }],
+          });
         }
         if (await startTrackGap(this, sound)) return this;
         continuing.add(this);
