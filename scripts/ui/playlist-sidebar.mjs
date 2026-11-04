@@ -1,4 +1,4 @@
-import { duckMusic, previewSound, stopPreview } from "../audio/preview.mjs";
+import { previewSound, stopPreview } from "../audio/preview.mjs";
 import { pendingSilence } from "../audio/silence-data.mjs";
 import { error, isGlobal, isGlobalFolder, reportError, state, t } from "../core/context.mjs";
 import { folderBranch, moveBranchToGlobal, moveBranchToLocal, removeGlobal } from "../library/global-library.mjs";
@@ -390,25 +390,24 @@ export function decorateDirectory(app) {
   const volume = element.querySelector(".global-volume");
   if (!volume) return;
   const existing = element.querySelector(".rn-global-panel");
+  if (!game.user.isGM) {
+    existing?.remove();
+    return;
+  }
   if (existing) {
     existing.classList.toggle("expanded", uiState.open);
     const edit = existing.querySelector(".rn-edit-toggle");
     const showHidden = existing.querySelector(".rn-show-hidden");
     if (edit) edit.checked = uiState.editing;
     if (showHidden) showHidden.checked = uiState.showHidden;
-    existing.querySelector(".rn-duck-option").checked = duckMusic();
     return;
   }
   const panel = document.createElement("div");
   panel.className = `rn-global-panel global-control ${uiState.open ? "expanded" : ""}`;
-  const management = game.user.isGM
-    ? `<li><label class="rn-toggle-row"><span>${t("UI.ManagementMode")}</span><input type="checkbox" class="rn-toggle-input rn-edit-toggle" ${uiState.editing ? "checked" : ""}></label></li>
-      <li><label class="rn-toggle-row"><span>${t("UI.ShowHidden")}</span><input type="checkbox" class="rn-toggle-input rn-show-hidden" ${uiState.showHidden ? "checked" : ""}></label></li>`
-    : "";
+  const management = `<li><label class="rn-toggle-row"><span>${t("UI.ManagementMode")}</span><input type="checkbox" class="rn-toggle-input rn-edit-toggle" ${uiState.editing ? "checked" : ""}></label></li>
+      <li><label class="rn-toggle-row"><span>${t("UI.ShowHidden")}</span><input type="checkbox" class="rn-toggle-input rn-show-hidden" ${uiState.showHidden ? "checked" : ""}></label></li>`;
   panel.innerHTML = `<header class="playlist-header"><i class="expand fa-solid fa-angle-up" inert></i><strong>Playlist Companion</strong></header>
-    <div class="expandable"><div class="wrapper"><ol class="plain">${management}<li>
-      <label class="rn-toggle-row"><span>${t("UI.DuckMusic")}</span><input type="checkbox" class="rn-toggle-input rn-duck-option" ${duckMusic() ? "checked" : ""}></label>
-    </li></ol></div></div>`;
+    <div class="expandable"><div class="wrapper"><ol class="plain">${management}</ol></div></div>`;
   panel.querySelector("header").addEventListener("click", () => {
     uiState.open = !uiState.open;
     panel.classList.toggle("expanded", uiState.open);
@@ -420,9 +419,6 @@ export function decorateDirectory(app) {
   panel.querySelector(".rn-show-hidden")?.addEventListener("change", (event) => {
     uiState.showHidden = event.currentTarget.checked;
     app.render({ parts: ["directory"] });
-  });
-  panel.querySelector(".rn-duck-option").addEventListener("change", (event) => {
-    game.settings.set("rn-playlist-companion", "duckMusic", event.currentTarget.checked);
   });
   volume.before(panel);
 }

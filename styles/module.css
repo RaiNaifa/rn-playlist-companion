@@ -36,9 +36,19 @@
     }
   }
 
-  .global-volume .rn-preview-volume {
-    range-picker {
-      min-width: 0;
+  .global-volume {
+    .rn-preview-volume,
+    .rn-duck-volume {
+      range-picker {
+        min-width: 0;
+      }
+    }
+
+    .rn-duck-volume {
+      .volume-icon {
+        color: var(--color-text-primary);
+        opacity: 1;
+      }
     }
   }
 

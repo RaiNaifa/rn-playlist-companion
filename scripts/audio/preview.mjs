@@ -3,7 +3,6 @@ import { readBounds } from "./bounds.mjs";
 import { clampSeek } from "./seek.mjs";
 
 const VOLUME_SETTING = "previewVolume";
-const DUCK_SETTING = "duckMusic";
 const DUCK_STRENGTH_SETTING = "duckStrength";
 const DEFAULT_DUCK_STRENGTH = 75;
 
@@ -26,18 +25,9 @@ export function registerPreviewSettings() {
     default: 0.5,
     onChange: applyPreviewVolume,
   });
-  game.settings.register(MODULE_ID, DUCK_SETTING, {
+  game.settings.register(MODULE_ID, DUCK_STRENGTH_SETTING, {
     scope: "client",
     config: false,
-    type: Boolean,
-    default: false,
-    onChange: applyDucking,
-  });
-  game.settings.register(MODULE_ID, DUCK_STRENGTH_SETTING, {
-    name: "RNPLAYCOMP.Settings.DuckStrength.Name",
-    hint: "RNPLAYCOMP.Settings.DuckStrength.Hint",
-    scope: "client",
-    config: true,
     type: Number,
     range: { min: 0, max: 100, step: 5 },
     default: DEFAULT_DUCK_STRENGTH,
@@ -56,10 +46,6 @@ export function registerPreviewSettings() {
 
 export function previewVolume() {
   return game.settings.get(MODULE_ID, VOLUME_SETTING);
-}
-
-export function duckMusic() {
-  return game.settings.get(MODULE_ID, DUCK_SETTING);
 }
 
 export function duckStrength() {
@@ -180,7 +166,7 @@ export function applyPreviewVolume() {
 
 export function applyDucking() {
   const previewAudible = sound?.playing || fadingSound?.playing;
-  const factor = previewAudible && duckMusic() ? 1 - duckStrength() / 100 : 1;
+  const factor = previewAudible ? 1 - duckStrength() / 100 : 1;
   for (const [channel, setting] of [
     [game.audio.music, "globalPlaylistVolume"],
     [game.audio.environment, "globalAmbientVolume"],

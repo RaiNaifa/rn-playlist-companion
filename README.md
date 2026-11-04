@@ -50,9 +50,7 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 
 - Sounds can be previewed locally alongside other playback.
 - Preview appears in **Currently Playing** with a separate volume control.
-- Audio ducking temporarily lowers the volume of Music, Environment, and Interface sounds during preview.
-- Audio ducking can be enabled or disabled in the Playlist Companion tab as needed.
-- The ducking level is configured separately for each client in the module settings.
+- Audio ducking temporarily lowers the volume of Music, Environment, and Interface sounds during preview. The ducking level is adjusted in User Volume Controls.
 
 #### Sound Boundaries and Silence Search
 
@@ -134,9 +132,7 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 
 - Звуки можно предпрослушивать локально одновременно с остальным воспроизведением.
 - Предпрослушивание отображается в **Сейчас играет** с отдельной регулировкой громкости.
-- Приглушение аудио позволяет временно уменьшать громкость музыки, окружения и интерфейса во время предпрослушивания.
-- Приглушение можно включать и отключать во вкладке Playlist Companion по мере надобности.
-- Степень приглушения настраивается отдельно для каждого клиента в настройках модуля.
+- Приглушение аудио позволяет временно уменьшать громкость музыки, окружения и интерфейса во время предпрослушивания. Степень приглушения регулируется в Управлении громкостью.
 
 #### Границы звука и Поиск тишины
 

@@ -89,7 +89,6 @@ test("a late-loaded preview cannot start after another sound was selected", asyn
         if (name === "globalAmbientVolume") return ambientVolume;
         if (name === "globalInterfaceVolume") return interfaceVolume;
         if (name === "previewVolume") return 0.5;
-        if (name === "duckMusic") return true;
         if (name === "duckStrength") return duckStrength;
         return undefined;
       },
@@ -159,6 +158,11 @@ test("a late-loaded preview cannot start after another sound was selected", asyn
   assert.equal(game.audio.music.gainNode.gain.value, 0.4);
   assert.equal(game.audio.environment.gainNode.gain.value, 0.15);
   assert.equal(game.audio.interface.gainNode.gain.value, 0.1);
+  duckStrength = 0;
+  applyDucking();
+  assert.equal(game.audio.music.gainNode.gain.value, 0.8);
+  assert.equal(game.audio.environment.gainNode.gain.value, 0.3);
+  assert.equal(game.audio.interface.gainNode.gain.value, 0.2);
   longFade.resolve();
   await new Promise(setImmediate);
   assert.equal(game.audio.music.gainNode.gain.value, 0.8);

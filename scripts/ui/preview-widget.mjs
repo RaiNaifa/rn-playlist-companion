@@ -1,6 +1,7 @@
 import { readBounds } from "../audio/bounds.mjs";
 import {
   activePreview,
+  duckStrength,
   onPreviewChange,
   previewPlaylistSound,
   previewSound,
@@ -165,11 +166,38 @@ export function decorateSounds(element) {
 
 export function decoratePreviewVolume(element) {
   const list = element.querySelector(".global-volume ol.plain");
-  if (!list || list.querySelector(".rn-preview-volume")) return;
+  if (!list) return;
+  if (!list.querySelector(".rn-preview-volume")) {
+    const row = document.createElement("li");
+    row.className = "flexrow rn-preview-volume";
+    row.dataset.tooltip = t("UI.PreviewVolumeHint");
+    row.innerHTML = `<label>${t("UI.PreviewVolume")}</label><i class="volume-icon fa-fw fa-solid fa-headphones" inert></i>`;
+    row.append(createPreviewVolumeSlider());
+    list.append(row);
+  }
+  if (list.querySelector(".rn-duck-volume")) return;
   const row = document.createElement("li");
-  row.className = "flexrow rn-preview-volume";
-  row.innerHTML = `<label>${t("UI.PreviewVolume")}</label><i class="volume-icon fa-fw fa-solid fa-headphones" inert></i>`;
-  row.append(createPreviewVolumeSlider());
+  row.className = "flexrow rn-duck-volume";
+  row.dataset.tooltip = t("UI.DuckMusicHint");
+  row.innerHTML = `<label>${t("UI.DuckMusic")}</label><i class="volume-icon fa-fw fa-solid fa-volume-xmark" inert></i>`;
+  const slider = foundry.applications.elements.HTMLRangePickerElement.create({
+    min: 0,
+    max: 100,
+    step: 5,
+    value: duckStrength(),
+  });
+  slider.setAttribute("aria-label", t("UI.DuckMusic"));
+  const percentage = () => `${Math.round(Number(slider.value))}%`;
+  slider.dataset.tooltip = percentage();
+  slider.ariaValueText = percentage();
+  slider.addEventListener("input", () => {
+    const tooltip = percentage();
+    slider.dataset.tooltipText = tooltip;
+    slider.ariaValueText = tooltip;
+    game.tooltip.activate(slider, { text: tooltip });
+    game.settings.set("rn-playlist-companion", "duckStrength", Number(slider.value));
+  });
+  row.append(slider);
   list.append(row);
 }
 
