@@ -271,6 +271,61 @@
   }
 }
 
+.rn-import-preview {
+  .rn-bulk-import-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+  }
+
+  .rn-import-heading {
+    margin-bottom: 0.3rem;
+    font-weight: bold;
+  }
+
+  .rn-import-with-empty {
+    display: none;
+  }
+
+  &:has(input[name="createEmpty"]:checked) {
+    .rn-import-default {
+      display: none;
+    }
+
+    .rn-import-with-empty {
+      display: block;
+    }
+  }
+
+  .rn-import-tree {
+    max-height: 18rem;
+    overflow: auto;
+    margin: 0;
+    padding: 0.3rem 0.5rem 0.3rem 1.2rem;
+
+    ul {
+      margin: 0;
+      padding-left: 1.4rem;
+    }
+
+    .rn-import-folder,
+    .rn-import-playlist {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.35rem;
+    }
+
+    small {
+      opacity: 0.75;
+    }
+  }
+
+  .rn-import-count {
+    margin-bottom: 0;
+  }
+}
+
 .playlist-sound-config {
   .window-content {
     &.rn-sound-scroll-layout {

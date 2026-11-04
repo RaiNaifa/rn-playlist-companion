@@ -3,6 +3,7 @@ import { pendingSilence } from "../audio/silence-data.mjs";
 import { error, isGlobal, isGlobalFolder, reportError, state, t } from "../core/context.mjs";
 import { folderBranch, moveBranchToGlobal, moveBranchToLocal, removeGlobal } from "../library/global-library.mjs";
 import { filterHiddenTree, hiddenIds, isHidden, setHidden } from "../library/visibility.mjs";
+import { openBulkImportPlaylists } from "./bulk-import-playlists.mjs";
 import { decorateDescriptions, registerDescriptionTooltipUpdates } from "./description-tooltip.mjs";
 import { decorateFolderLaunchers } from "./folder-launcher.mjs";
 import { decorateNames } from "./name-marquee.mjs";
@@ -305,6 +306,20 @@ function decorateFolderPlayback(element) {
 export function decorateDirectory(app) {
   const element = app.element;
   if (!element) return;
+  const createFolder = element.querySelector('header.directory-header [data-action="createFolder"]');
+  const header = createFolder?.closest("header.directory-header");
+  const actions = header?.querySelector(":scope > .header-actions");
+  // Foundry can rerender this header.
+  // Replace our button rather than adding a duplicate on each render.
+  element.querySelector(".rn-bulk-import-button")?.remove();
+  if (game.user.isGM && actions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `${createFolder.className} rn-bulk-import-button`;
+    button.innerHTML = `<i class="fa-solid fa-folder-tree" aria-hidden="true"></i> ${foundry.utils.escapeHTML(t("BulkImport.Button"))}`;
+    button.addEventListener("click", openBulkImportPlaylists);
+    actions.append(button);
+  }
   // A partial Foundry render may leave the previous queue in place before the new playing block.
   element.querySelector(".rn-queue")?.remove();
   syncPreviewWidget(element);

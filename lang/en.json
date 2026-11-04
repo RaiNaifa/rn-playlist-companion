@@ -177,6 +177,24 @@
       "AutoResolved": "ID conflicts resolved automatically ({count}): local items received new IDs.",
       "Unresolved": "An ID conflict remains unresolved. The local item is available. Reopen the choice in module settings."
     },
+    "BulkImport": {
+      "Button": "Import Folder Structure",
+      "Title": "Import Folder Structure",
+      "Description": "Select a folder containing sounds or subfolders with sounds that you want to import, preserving their folder structure.",
+      "PathPlaceholder": "Path to folder",
+      "ShowPreview": "Review Structure",
+      "SelectFolder": "Choose a folder to import.",
+      "DataOnly": "Choose a folder from Foundry User Data.",
+      "Source": "Selected folder: {name}",
+      "WillCreate": "The following structure will be created:",
+      "SoundCount": "(sounds: {count})",
+      "Count": "Total: {folders} folders, {playlists} playlists, {sounds} sounds.",
+      "NoAudio": "No audio files were found in this folder or its subfolders.",
+      "CreateEmpty": "Create empty playlists from empty folders",
+      "Import": "Import",
+      "TooDeep": "The selected hierarchy exceeds Foundry's limit of {depth} nested playlist folders.",
+      "Complete": "Imported {folders} folders, {playlists} playlists and {sounds} sounds."
+    },
     "UI": {
       "Queue": "Play Queue",
       "AddToQueue": "Add Sound to Queue",
