@@ -1,4 +1,5 @@
 import { playbackData } from "../audio/playback-state.mjs";
+import { receiveQueueMessage } from "../audio/queue.mjs";
 import { receiveSeek } from "../audio/seek.mjs";
 import { reportError, state } from "../core/context.mjs";
 import { applyChanges, invalidateGlobalReload, reloadGlobalPlaylists } from "../library/global-library.mjs";
@@ -6,6 +7,10 @@ import { installInClient, removeFromClient } from "./client-collection.mjs";
 
 export function onSocket(message) {
   if (message?.sender === game.user.id) return;
+  if (message?.type === "queue-change" || message?.type === "queue-result") {
+    receiveQueueMessage(message);
+    return;
+  }
   if (message?.type === "seek") {
     const sender = game.users.get(message.sender);
     const playlist = game.playlists.get(message.payload?.playlistId);

@@ -1,6 +1,7 @@
 import { activePreview, togglePreview } from "../audio/preview.mjs";
 import {
   addToQueue,
+  canManageQueueSound,
   changeQueue,
   playQueueEntry,
   playQueueNext,
@@ -9,6 +10,7 @@ import {
   sameSound,
   soundEntry,
   toggleQueueLink,
+  visibleQueueEntries,
 } from "../audio/queue.mjs";
 import { reportError, t } from "../core/context.mjs";
 import { soundChannelIconClass } from "./sound-channel-icon.mjs";
@@ -32,7 +34,8 @@ function button(icon, label, action) {
 function renderQueue(element) {
   element.querySelector(".rn-queue")?.remove();
   const state = queueState();
-  if (!state.entries.some((entry) => queueSound(entry))) return;
+  const visible = visibleQueueEntries(state.entries);
+  if (!visible.length) return;
   const playing = element.querySelector(".currently-playing:not(.rn-queue)");
   if (!playing) return;
   const widget = document.createElement("section");
@@ -46,17 +49,24 @@ function renderQueue(element) {
     open = !open;
     widget.classList.toggle("expanded", open);
   });
-  header.append(button("fa-forward-step", t("UI.NextQueuedSound"), playQueueNext));
-  header.append(button("fa-trash", t("UI.ClearQueue"), () => changeQueue((state) => ({ ...state, entries: [] }))));
+  if (game.user.isGM) {
+    header.append(button("fa-forward-step", t("UI.NextQueuedSound"), playQueueNext));
+    header.append(
+      button("fa-trash", t("UI.ClearQueue"), () =>
+        changeQueue((current) => ({
+          ...current,
+          entries: current.entries.filter((entry) => !canManageQueueSound(queueSound(entry))),
+        })),
+      ),
+    );
+  }
   const expandable = document.createElement("div");
   expandable.className = "expandable";
   const wrapper = document.createElement("div");
   wrapper.className = "wrapper";
   const list = document.createElement("ol");
   list.className = "playlist-sounds plain";
-  state.entries.forEach((entry, index) => {
-    const sound = queueSound(entry);
-    if (!sound) return;
+  visible.forEach(({ sound, index }) => {
     const row = document.createElement("li");
     row.className = "sound rn-queue-sound";
     row.draggable = true;
@@ -82,7 +92,7 @@ function renderQueue(element) {
     controls.append(
       button("fa-xmark", t("UI.RemoveFromQueue"), () =>
         changeQueue((current) => {
-          current.entries.splice(index, 1);
+          if (canManageQueueSound(queueSound(current.entries[index]))) current.entries.splice(index, 1);
           return current;
         }),
       ),
@@ -100,6 +110,11 @@ function renderQueue(element) {
       event.preventDefault();
       event.stopPropagation();
       changeQueue((current) => {
+        if (
+          !canManageQueueSound(queueSound(current.entries[source])) ||
+          !canManageQueueSound(queueSound(current.entries[index]))
+        )
+          return current;
         const [item] = current.entries.splice(source, 1);
         current.entries.splice(index, 0, item);
         return current;
@@ -130,7 +145,7 @@ export function decorateQueue(element) {
   for (const row of element.querySelectorAll(".directory-list .sound[data-playlist-id][data-sound-id]")) {
     const controls = row.querySelector(":scope > header > .sound-controls");
     const sound = game.playlists.get(row.dataset.playlistId)?.sounds.get(row.dataset.soundId);
-    if (!controls || !sound?.path || controls.querySelector(".rn-add-queue")) continue;
+    if (!controls || !sound?.path || !canManageQueueSound(sound) || controls.querySelector(".rn-add-queue")) continue;
     const add = button("fa-indent", t("UI.AddToQueue"), () => addToQueue(sound));
     add.classList.add("rn-add-queue");
     controls.prepend(add);
@@ -144,7 +159,7 @@ export function decorateQueue(element) {
       continue;
     }
     const sound = game.playlists.get(row.dataset.playlistId)?.sounds.get(row.dataset.soundId);
-    if (!controls || !sound || controls.querySelector(".rn-queue-link")) continue;
+    if (!controls || !canManageQueueSound(sound) || controls.querySelector(".rn-queue-link")) continue;
     const link = button("fa-right-to-bracket", t("UI.LinkQueue"), () => toggleQueueLink(sound));
     link.classList.add("rn-queue-link");
     const active = sameSound(queueState().linked, soundEntry(sound));
