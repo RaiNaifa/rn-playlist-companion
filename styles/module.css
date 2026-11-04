@@ -155,6 +155,22 @@
 
   .directory-list {
     .folder > .folder-header {
+      .rn-launch-stop,
+      .rn-launch-play {
+        width: 1.5rem;
+        height: 1.5rem;
+        padding: 0;
+
+        &:disabled {
+          opacity: 0.4;
+          cursor: default;
+        }
+      }
+
+      .rn-launch-stop {
+        margin-left: 4px;
+      }
+
       .fa-folder-open {
         &.rn-folder-playing {
           color: var(--color-warm-1);

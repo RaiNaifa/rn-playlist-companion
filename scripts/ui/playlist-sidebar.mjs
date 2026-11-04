@@ -4,6 +4,7 @@ import { error, isGlobal, isGlobalFolder, reportError, state, t } from "../core/
 import { folderBranch, moveBranchToGlobal, moveBranchToLocal, removeGlobal } from "../library/global-library.mjs";
 import { filterHiddenTree, hiddenIds, isHidden, setHidden } from "../library/visibility.mjs";
 import { decorateDescriptions, registerDescriptionTooltipUpdates } from "./description-tooltip.mjs";
+import { decorateFolderLaunchers } from "./folder-launcher.mjs";
 import { decorateNames } from "./name-marquee.mjs";
 import { decorateRestrictedPlaying, filterRestrictedTree } from "./player-privacy.mjs";
 import { patchPlayingTimer } from "./playing-timer.mjs";
@@ -324,6 +325,7 @@ export function decorateDirectory(app) {
   decorateDescriptions(element);
   decoratePreviewVolume(element);
   decorateFolderPlayback(element);
+  decorateFolderLaunchers(element);
   for (const li of element.querySelectorAll(
     ".directory-item.playlist[data-entry-id], .directory-item.folder[data-folder-id]",
   )) {
