@@ -1,5 +1,6 @@
 import { MODULE_ID, t } from "../core/context.mjs";
 import { readBounds } from "./bounds.mjs";
+import { clampSeek } from "./seek.mjs";
 
 const VOLUME_SETTING = "previewVolume";
 const DUCK_SETTING = "duckMusic";
@@ -13,6 +14,8 @@ let previewDocument;
 let previewUuid = null;
 let fadeDuration = 0;
 let generation = 0;
+let fadeHandle;
+const seekQueues = new WeakMap();
 const listeners = new Set();
 
 export function registerPreviewSettings() {
@@ -81,11 +84,72 @@ export function previewSound() {
   return sound;
 }
 
+async function applyPreviewSeek(current, document, target) {
+  if (sound !== current || previewDocument !== document || !current.playing) return false;
+  if (current.element) {
+    current.element.currentTime = target;
+    current.startTime = current.context.currentTime - target;
+    current.volume = document.volume ?? 1;
+  } else if (current.buffer) {
+    // Reuse the preview's loaded buffer and restart only its audio source at the new position.
+    current.pause();
+    current.pausedTime = target;
+    const bounds = readBounds(document, current.buffer.duration);
+    await current.play({
+      offset: 0,
+      volume: document.volume ?? 1,
+      loop: false,
+      duration: bounds ? bounds.end - target : undefined,
+    });
+  } else return false;
+  // play() is asynchronous: ignore completion if another preview replaced this one meanwhile.
+  if (sound !== current || previewDocument !== document) return false;
+  return true;
+}
+
+export function seekPreview(seconds) {
+  const current = sound;
+  const document = previewDocument;
+  const target = clampSeek(document, current, seconds);
+  if (target == null || (!current?.playing && !seekQueues.get(current)?.running)) return Promise.resolve(false);
+  let queue = seekQueues.get(current);
+  if (!queue) {
+    queue = { latest: null, running: null };
+    seekQueues.set(current, queue);
+  }
+  queue.latest = target;
+  if (queue.running) return queue.running;
+  queue.running = (async () => {
+    let success = false;
+    try {
+      while (queue.latest != null && sound === current && previewDocument === document) {
+        const next = queue.latest;
+        queue.latest = null;
+        success = await applyPreviewSeek(current, document, next);
+        if (success && queue.latest == null && sound === current && previewDocument === document) {
+          // The fade timer is relative to the old position and must follow the final seek only.
+          scheduleEndFade(current);
+          notify();
+        }
+      }
+      return success;
+    } finally {
+      queue.running = null;
+    }
+  })();
+  return queue.running;
+}
+
 function scheduleEndFade(currentSound) {
+  if (fadeHandle) currentSound.unschedule?.(fadeHandle);
+  fadeHandle = null;
   if (!fadeDuration || !Number.isFinite(currentSound.duration)) return;
   const end = readBounds(previewDocument, currentSound.duration)?.end ?? currentSound.duration;
   const startAfter = Math.max(0, end - currentSound.currentTime - fadeDuration / 1000);
-  currentSound.schedule(() => currentSound.fade(0, { duration: fadeDuration }), currentSound.currentTime + startAfter);
+  fadeHandle = currentSound.schedule(
+    () => currentSound.fade(0, { duration: fadeDuration }),
+    currentSound.currentTime + startAfter,
+  );
 }
 
 export function onPreviewChange(listener) {
@@ -131,6 +195,8 @@ export function applyDucking() {
 export function stopPreview({ fade = false } = {}) {
   generation += 1;
   const previous = sound;
+  if (previous && fadeHandle) previous.unschedule?.(fadeHandle);
+  fadeHandle = null;
   const oldFade = fadeDuration;
   if (fadingSound) Promise.resolve(fadingSound.stop({ fade: 0 })).catch(console.error);
   fadingSound = null;

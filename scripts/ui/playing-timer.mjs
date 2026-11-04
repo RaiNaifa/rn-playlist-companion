@@ -1,4 +1,7 @@
 import { readBounds } from "../audio/bounds.mjs";
+import { activePreview } from "../audio/preview.mjs";
+import { updatePreviewTime } from "./preview-widget.mjs";
+import { decorateSeekWidgets, updateSeekWidget } from "./seek-widget.mjs";
 
 export function boundedPlayingTime(playlistSound) {
   const audio = playlistSound?.sound;
@@ -37,8 +40,14 @@ export function patchPlayingTimer(Directory) {
   Directory.prototype.updateTimestamps = function (...args) {
     const result = update.apply(this, args);
     for (const widget of document.querySelectorAll(".playlists-sidebar .currently-playing")) {
+      const sidebar = widget.closest?.(".playlists-sidebar");
+      // Foundry can replace the row during a timestamp update, removing our injected controls.
+      if (sidebar) decorateSeekWidgets(sidebar);
       for (const row of widget.querySelectorAll(".sound:not(.rn-preview-playing)[data-playlist-id][data-sound-id]")) {
         const sound = game.playlists.get(row.dataset.playlistId)?.sounds.get(row.dataset.soundId);
+        updateSeekWidget(row);
+        // The same native row displays preview time while that sound is being previewed.
+        if (activePreview() === sound?.uuid) continue;
         const time = boundedPlayingTime(sound);
         if (!time) continue;
         const current = row.querySelector(".current");
@@ -47,6 +56,7 @@ export function patchPlayingTimer(Directory) {
         if (duration) duration.textContent = this.constructor.formatTimestamp(time.duration);
       }
     }
+    if (activePreview()) updatePreviewTime();
     return result;
   };
 }

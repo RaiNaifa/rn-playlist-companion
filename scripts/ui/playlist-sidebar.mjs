@@ -14,6 +14,7 @@ import {
   syncPreviewWidget,
 } from "./preview-widget.mjs";
 import { decorateQueue } from "./queue-widget.mjs";
+import { decorateSeekWidgets } from "./seek-widget.mjs";
 import { decorateSilenceWidget, registerSilenceWidgetTimer } from "./silence-widget.mjs";
 import { decorateSoundChannelIcons } from "./sound-channel-icon.mjs";
 import { mountSoundWindows, patchSoundWindows, searchActive } from "./sound-window.mjs";
@@ -317,6 +318,7 @@ export function decorateDirectory(app) {
     decorateDescriptions(element);
   });
   decorateSounds(element);
+  decorateSeekWidgets(element);
   decorateSoundChannelIcons(element);
   decorateNames(element);
   decorateDescriptions(element);
@@ -428,6 +430,9 @@ export function decorateDirectory(app) {
 export function patchDirectory() {
   registerDescriptionTooltipUpdates();
   registerPreviewWidgetUpdates();
+  Hooks.on("rnPlaylistCompanionSeek", () => {
+    for (const element of document.querySelectorAll(".playlists-sidebar")) decorateSeekWidgets(element);
+  });
   const refreshFolders = () => {
     for (const element of document.querySelectorAll(".playlists-sidebar")) decorateFolderPlayback(element);
   };
@@ -447,6 +452,12 @@ export function patchDirectory() {
     for (const element of document.querySelectorAll(".playlists-sidebar")) decorateSoundChannelIcons(element);
   });
   const Directory = foundry.applications.sidebar.tabs.PlaylistDirectory;
+  const renderDirectory = Directory.prototype._onRender;
+  Directory.prototype._onRender = async function (...args) {
+    const result = await renderDirectory.apply(this, args);
+    if (this.element) decorateSeekWidgets(this.element);
+    return result;
+  };
   patchSoundWindows(Directory);
   patchPlayingTimer(Directory);
   const prepareDirectory = Directory.prototype._prepareDirectoryContext;

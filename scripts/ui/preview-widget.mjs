@@ -10,18 +10,22 @@ import {
 import { t } from "../core/context.mjs";
 import { decorateDescriptions } from "./description-tooltip.mjs";
 import { decorateNames } from "./name-marquee.mjs";
+import { decorateSeekWidgets, updateSeekWidgets } from "./seek-widget.mjs";
 import { soundChannelIconClass } from "./sound-channel-icon.mjs";
 
 let previewTimer;
 
-function updatePreviewTime() {
+export function updatePreviewTime() {
   const sound = previewSound();
   const bounds = readBounds(previewPlaylistSound(), sound?.buffer?.duration ?? sound?.element?.duration);
   const format = foundry.applications.sidebar.tabs.PlaylistDirectory.formatTimestamp;
-  for (const row of document.querySelectorAll(".playlists-sidebar .rn-preview-playing")) {
+  const previewUuid = previewPlaylistSound()?.uuid;
+  for (const row of document.querySelectorAll(".playlists-sidebar .currently-playing:not(.rn-queue) .sound")) {
+    if (row.dataset.soundUuid !== previewUuid || !previewUuid) continue;
     row.querySelector(".current").textContent = format(Math.max(0, (sound?.currentTime ?? 0) - (bounds?.start ?? 0)));
     row.querySelector(".duration").textContent = format(bounds ? bounds.end - bounds.start : (sound?.duration ?? 0));
   }
+  updateSeekWidgets();
 }
 
 function createPreviewVolumeSlider() {
@@ -173,6 +177,7 @@ export function registerPreviewWidgetUpdates() {
   onPreviewChange(() => {
     for (const element of document.querySelectorAll(".playlists-sidebar")) {
       syncPreviewWidget(element);
+      decorateSeekWidgets(element);
       decorateSounds(element);
       decorateNames(element);
       decorateDescriptions(element);
@@ -180,5 +185,6 @@ export function registerPreviewWidgetUpdates() {
     updatePreviewButtons();
     clearInterval(previewTimer);
     previewTimer = activePreview() ? setInterval(updatePreviewTime, 1000) : undefined;
+    if (activePreview()) updatePreviewTime();
   });
 }

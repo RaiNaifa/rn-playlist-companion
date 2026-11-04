@@ -10,6 +10,11 @@ const delayedRepeat = (sound) => {
 const controllers = new WeakMap();
 const warned = new WeakSet();
 
+export function resetBoundedSeek(sound) {
+  // A direct element seek invalidates the previous boundary position and fade state.
+  controllers.get(sound)?.reset?.();
+}
+
 function dispose(sound) {
   const controller = controllers.get(sound);
   if (!controller) return;
@@ -131,7 +136,17 @@ export function installBoundedPlayback() {
       let ending = false;
       let previousPosition = null;
       const currentFade = () => Math.min(this.fade ?? this.parent?.fade ?? 0, (bounds.end - bounds.start) * 500);
-      const controller = { timer: null, check: null, fading: false };
+      const controller = {
+        timer: null,
+        check: null,
+        fading: false,
+        reset: () => {
+          fading = false;
+          ending = false;
+          previousPosition = null;
+          controller.fading = false;
+        },
+      };
       const check = async () => {
         if (controllers.get(sound) !== controller || !sound.playing) return;
         const position = sound.element ? sound.element.currentTime : sound.currentTime;
