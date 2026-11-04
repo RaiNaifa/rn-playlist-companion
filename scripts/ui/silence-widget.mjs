@@ -94,25 +94,28 @@ export function decorateSilenceWidget(element, entries = pendingEntries()) {
 }
 
 export function registerSilenceWidgetTimer(decorate) {
-  setInterval(() => {
-    // Foundry may not rerender Currently Playing when the last audible sound ends.
-    const entries = pendingEntries();
-    for (const element of document.querySelectorAll(".playlists-sidebar")) {
-      const rows = [...element.querySelectorAll(".currently-playing:not(.rn-queue) .rn-silence-playing")];
-      const current = new Set(
-        rows.map((row) => `${row.dataset.playlistId}:${row.dataset.soundId ?? ""}:${row.dataset.pendingId}`),
-      );
-      const expected = new Set(
-        entries.map(([playlist, item, soundId]) => `${playlist.id}:${soundId ?? ""}:${item.id}`),
-      );
-      if (
-        current.size !== expected.size ||
-        [...expected].some((key) => !current.has(key)) ||
-        (entries.length && element.querySelector(".currently-playing:not(.rn-queue)")?.hidden)
-      ) {
-        decorateSilenceWidget(element, entries);
-        decorate(element);
-      } else refreshTimes(element);
-    }
-  }, 250);
+  // The directory patch is installed at init, before game.playlists becomes a Collection.
+  Hooks.once("ready", () =>
+    setInterval(() => {
+      // Foundry may not rerender Currently Playing when the last audible sound ends.
+      const entries = pendingEntries();
+      for (const element of document.querySelectorAll(".playlists-sidebar")) {
+        const rows = [...element.querySelectorAll(".currently-playing:not(.rn-queue) .rn-silence-playing")];
+        const current = new Set(
+          rows.map((row) => `${row.dataset.playlistId}:${row.dataset.soundId ?? ""}:${row.dataset.pendingId}`),
+        );
+        const expected = new Set(
+          entries.map(([playlist, item, soundId]) => `${playlist.id}:${soundId ?? ""}:${item.id}`),
+        );
+        if (
+          current.size !== expected.size ||
+          [...expected].some((key) => !current.has(key)) ||
+          (entries.length && element.querySelector(".currently-playing:not(.rn-queue)")?.hidden)
+        ) {
+          decorateSilenceWidget(element, entries);
+          decorate(element);
+        } else refreshTimes(element);
+      }
+    }, 250),
+  );
 }
