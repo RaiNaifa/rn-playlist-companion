@@ -18,6 +18,7 @@ import { registerParameterButtonColors } from "./ui/parameter-button-colors.mjs"
 import { registerPlayerPrivacySetting } from "./ui/player-privacy.mjs";
 import { registerPlaylistLoop } from "./ui/playlist-loop.mjs";
 import { patchDirectory } from "./ui/playlist-sidebar.mjs";
+import { registerPlaylistTint } from "./ui/playlist-tint.mjs";
 import { registerReleaseNotesSettings, showReleaseNotesAfterUpdate } from "./ui/release-notes.mjs";
 import { registerSilenceConfig } from "./ui/silence-config.mjs";
 import { registerSoundBounds } from "./ui/sound-bounds.mjs";
@@ -35,6 +36,7 @@ Hooks.once("init", () => {
   registerBufferDurationSettings();
   registerSoundBounds();
   registerPlaylistLoop();
+  registerPlaylistTint();
   registerSilenceConfig();
   registerConfigSavePlayback();
   registerFolderLauncher();

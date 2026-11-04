@@ -204,6 +204,8 @@
       "ClearQueue": "Очистить очередь",
       "RandomMode": "Случайный",
       "LoopPlaylist": "Повторение плейлиста",
+      "PlaylistTint": "Оттенок плейлиста",
+      "InvalidPlaylistTint": "Введите цвет в формате #rrggbb.",
       "FolderLauncher": "Управление запуском",
       "LaunchFolderPlay": "Воспроизведение вложенных плейлистов",
       "LaunchFolderStop": "Остановка вложенных плейлистов",

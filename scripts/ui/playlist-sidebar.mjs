@@ -9,6 +9,7 @@ import { decorateFolderLaunchers } from "./folder-launcher.mjs";
 import { decorateNames } from "./name-marquee.mjs";
 import { decorateRestrictedPlaying, filterRestrictedTree } from "./player-privacy.mjs";
 import { patchPlayingTimer } from "./playing-timer.mjs";
+import { decoratePlaylistTints } from "./playlist-tint.mjs";
 import {
   decoratePreviewVolume,
   decorateSounds,
@@ -340,6 +341,7 @@ export function decorateDirectory(app) {
   decorateDescriptions(element);
   decoratePreviewVolume(element);
   decorateFolderPlayback(element);
+  decoratePlaylistTints(element);
   decorateFolderLaunchers(element);
   for (const li of element.querySelectorAll(
     ".directory-item.playlist[data-entry-id], .directory-item.folder[data-folder-id]",

@@ -204,6 +204,8 @@
       "ClearQueue": "Clear Queue",
       "RandomMode": "Random Playback",
       "LoopPlaylist": "Loop Playlist",
+      "PlaylistTint": "Playlist Tint",
+      "InvalidPlaylistTint": "Enter a color in #rrggbb format.",
       "FolderLauncher": "Launch Controls",
       "LaunchFolderPlay": "Play Nested Playlists",
       "LaunchFolderStop": "Stop Nested Playlists",
