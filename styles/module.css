@@ -1,4 +1,10 @@
 .playlists-sidebar {
+  > .directory-footer {
+    .rn-mini-player-button {
+      font-size: var(--font-size-13);
+    }
+  }
+
   .sound > header > .sound-controls {
     flex-basis: auto;
 
@@ -1008,5 +1014,41 @@ html.rn-info-parameter-buttons {
         }
       }
     }
+  }
+}
+
+.rn-player-companion-window {
+  &:not(.minimized, .minimizing) {
+    min-width: 300px;
+    min-height: 150px;
+  }
+
+  > .window-content {
+    padding: 0 0 8px;
+  }
+
+  .rn-player-companion-host {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+.playlists-sidebar.rn-player-companion {
+  min-width: 100%;
+  min-height: 100%;
+  overflow-y: auto;
+
+  :is(.global-volume, .currently-playing) {
+    > header {
+      padding: 6px 8px;
+    }
+  }
+
+  > .directory-header,
+  > .directory-list,
+  > .directory-footer,
+  > .rn-global-panel {
+    display: none;
   }
 }

@@ -196,6 +196,8 @@
       "Complete": "Импортировано: {folders} папок, {playlists} плейлистов, {sounds} звуков."
     },
     "UI": {
+      "MiniPlayer": "Player Companion",
+      "OpenMiniPlayer": "Открыть Player Companion",
       "Queue": "Очередь воспроизведения",
       "AddToQueue": "Добавить звук в очередь",
       "RemoveFromQueue": "Убрать из очереди",

@@ -1,6 +1,7 @@
 import { stopPreviewForPlayback } from "../audio/preview.mjs";
 import { schedule as scheduleSilence } from "../audio/silence-playback.mjs";
 import { error, MODULE_ID, state } from "../core/context.mjs";
+import { refreshMiniPlayer } from "../ui/mini-player.mjs";
 
 const pendingUnlock = new WeakSet();
 let unlockRefreshQueued = false;
@@ -30,6 +31,8 @@ export function refresh() {
   if (state.suspendRefresh) return;
   game.playlists.initializeTree();
   ui.playlists?.render();
+  // Global playlist patches bypass Foundry's document update hooks used by the companion.
+  refreshMiniPlayer();
 }
 
 export function installFolder(data) {

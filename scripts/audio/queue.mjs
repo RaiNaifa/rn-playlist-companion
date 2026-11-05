@@ -1,4 +1,5 @@
 import { MODULE_ID, reportError } from "../core/context.mjs";
+import { beginMiniPlayerTransition, endMiniPlayerTransition, refreshMiniPlayer } from "../ui/mini-player.mjs";
 
 const KEY = "soundQueue";
 let transition = Promise.resolve();
@@ -188,26 +189,32 @@ async function startQueuedSound(index) {
       ? visibleQueueEntries(current.entries)[0]
       : visibleQueueEntries(current.entries).find((item) => item.index === index);
   if (!selected) return;
-  // Keep the chosen occurrence stable if another edit moves or duplicates the same sound.
-  const occurrence = current.entries
-    .slice(0, selected.index + 1)
-    .filter((entry) => sameSound(entry, selected.entry)).length;
-  let linked;
-  let next;
-  // Commit removal and relinking together; never stop the old sound if the write fails.
-  await changeQueue((state) => {
-    let seen = 0;
-    const position = state.entries.findIndex((entry) => sameSound(entry, selected.entry) && ++seen === occurrence);
-    if (position < 0 || !canManageQueueSound(queueSound(state.entries[position])))
-      throw new Error("Selected queued sound is no longer available.");
-    linked = queueSound(state.linked);
-    [next] = state.entries.splice(position, 1);
-    state.linked = next;
-    return state;
-  });
-  if (linked?.playing && canManageQueueSound(linked)) await linked.parent.stopSound(linked);
-  const sound = queueSound(next);
-  if (sound) await sound.parent.playSound(sound);
+  // Hold the companion's last frame across the separate queue, stop, and play updates.
+  beginMiniPlayerTransition();
+  try {
+    // Keep the chosen occurrence stable if another edit moves or duplicates the same sound.
+    const occurrence = current.entries
+      .slice(0, selected.index + 1)
+      .filter((entry) => sameSound(entry, selected.entry)).length;
+    let linked;
+    let next;
+    // Commit removal and relinking together; never stop the old sound if the write fails.
+    await changeQueue((state) => {
+      let seen = 0;
+      const position = state.entries.findIndex((entry) => sameSound(entry, selected.entry) && ++seen === occurrence);
+      if (position < 0 || !canManageQueueSound(queueSound(state.entries[position])))
+        throw new Error("Selected queued sound is no longer available.");
+      linked = queueSound(state.linked);
+      [next] = state.entries.splice(position, 1);
+      state.linked = next;
+      return state;
+    });
+    if (linked?.playing && canManageQueueSound(linked)) await linked.parent.stopSound(linked);
+    const sound = queueSound(next);
+    if (sound) await sound.parent.playSound(sound);
+  } finally {
+    endMiniPlayerTransition();
+  }
 }
 
 export function playQueueNext() {
@@ -224,7 +231,10 @@ export function installQueuePlayback() {
     config: false,
     type: Object,
     default: { entries: [], linked: null },
-    onChange: () => ui.playlists?.render(),
+    onChange: () => {
+      ui.playlists?.render();
+      refreshMiniPlayer();
+    },
   });
   const Playlist = foundry.documents.Playlist;
   const originalEnd = Playlist.prototype._onSoundEnd;

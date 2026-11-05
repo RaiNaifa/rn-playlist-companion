@@ -15,7 +15,7 @@ import {
 import { reportError, t } from "../core/context.mjs";
 import { soundChannelIconClass } from "./sound-channel-icon.mjs";
 
-let open = true;
+const queueOpenBySurface = { sidebar: true, companion: true };
 
 function button(icon, label, action) {
   const control = document.createElement("button");
@@ -33,6 +33,7 @@ function button(icon, label, action) {
 
 function renderQueue(element) {
   element.querySelector(".rn-queue")?.remove();
+  const surface = element.closest(".rn-player-companion-window") ? "companion" : "sidebar";
   const state = queueState();
   const visible = visibleQueueEntries(state.entries);
   if (!visible.length) return;
@@ -40,14 +41,14 @@ function renderQueue(element) {
   if (!playing) return;
   const widget = document.createElement("section");
   // Reuse Foundry's playing styles, but exclude this block from playing-sound selectors.
-  widget.className = `currently-playing global-control rn-queue${open ? " expanded" : ""}`;
+  widget.className = `currently-playing global-control rn-queue${queueOpenBySurface[surface] ? " expanded" : ""}`;
   const header = document.createElement("header");
   header.className = "playlist-header";
   header.innerHTML = `<i class="expand fa-solid fa-angle-up" inert></i><strong>${t("UI.Queue")}</strong>`;
   header.addEventListener("click", (event) => {
     if (event.target.closest("button")) return;
-    open = !open;
-    widget.classList.toggle("expanded", open);
+    queueOpenBySurface[surface] = !queueOpenBySurface[surface];
+    widget.classList.toggle("expanded", queueOpenBySurface[surface]);
   });
   if (game.user.isGM) {
     header.append(button("fa-forward-step", t("UI.NextQueuedSound"), playQueueNext));

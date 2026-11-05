@@ -6,6 +6,7 @@ import { filterHiddenTree, hiddenIds, isHidden, setHidden } from "../library/vis
 import { openBulkImportPlaylists } from "./bulk-import-playlists.mjs";
 import { decorateDescriptions, registerDescriptionTooltipUpdates } from "./description-tooltip.mjs";
 import { decorateFolderLaunchers } from "./folder-launcher.mjs";
+import { decorateMiniPlayerButton } from "./mini-player.mjs";
 import { decorateNames } from "./name-marquee.mjs";
 import { decorateRestrictedPlaying, filterRestrictedTree } from "./player-privacy.mjs";
 import { patchPlayingTimer } from "./playing-timer.mjs";
@@ -22,7 +23,8 @@ import { decorateSilenceWidget, registerSilenceWidgetTimer } from "./silence-wid
 import { decorateSoundChannelIcons } from "./sound-channel-icon.mjs";
 import { mountSoundWindows, patchSoundWindows, searchActive } from "./sound-window.mjs";
 
-const uiState = { open: false, editing: false, showHidden: false, playingOpen: true };
+const uiState = { open: false, editing: false, showHidden: false };
+const playingOpenBySurface = { sidebar: true, companion: true };
 
 export async function stopPlaylistFully(playlist) {
   await playlist.stopAll();
@@ -40,6 +42,7 @@ export async function stopPlaylistFully(playlist) {
 function decorateCurrentlyPlaying(element, app) {
   const widget = element.querySelector(".currently-playing:not(.rn-queue)");
   if (!widget) return;
+  const surface = element.closest(".rn-player-companion-window") ? "companion" : "sidebar";
   const header = widget.querySelector(":scope > .playlist-header");
   const list = widget.querySelector(":scope > .playlist-sounds, :scope > .expandable .playlist-sounds");
   if (!header || !list) return;
@@ -155,7 +158,7 @@ function decorateCurrentlyPlaying(element, app) {
     wrapper.append(list);
     expandable.append(wrapper);
   }
-  widget.classList.toggle("expanded", uiState.playingOpen);
+  widget.classList.toggle("expanded", playingOpenBySurface[surface]);
   if (!header.querySelector(":scope > .expand")) {
     const icon = document.createElement("i");
     icon.className = "expand fa-solid fa-angle-up";
@@ -163,8 +166,8 @@ function decorateCurrentlyPlaying(element, app) {
     header.prepend(icon);
     header.addEventListener("click", (event) => {
       if (event.target.closest(".pin, .rn-stop-all, .rn-pause-all")) return;
-      uiState.playingOpen = !uiState.playingOpen;
-      widget.classList.toggle("expanded", uiState.playingOpen);
+      playingOpenBySurface[surface] = !playingOpenBySurface[surface];
+      widget.classList.toggle("expanded", playingOpenBySurface[surface]);
     });
   }
 }
@@ -307,6 +310,7 @@ function decorateFolderPlayback(element) {
 export function decorateDirectory(app) {
   const element = app.element;
   if (!element) return;
+  decorateMiniPlayerButton(element);
   const createFolder = element.querySelector('header.directory-header [data-action="createFolder"]');
   const header = createFolder?.closest("header.directory-header");
   const actions = header?.querySelector(":scope > .header-actions");

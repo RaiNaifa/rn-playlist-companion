@@ -196,6 +196,8 @@
       "Complete": "Imported {folders} folders, {playlists} playlists and {sounds} sounds."
     },
     "UI": {
+      "MiniPlayer": "Player Companion",
+      "OpenMiniPlayer": "Open Player Companion",
       "Queue": "Play Queue",
       "AddToQueue": "Add Sound to Queue",
       "RemoveFromQueue": "Remove from Queue",
