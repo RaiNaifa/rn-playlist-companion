@@ -1052,3 +1052,14 @@ html.rn-info-parameter-buttons {
     display: none;
   }
 }
+
+html.rn-custom-control-header-color .playlists-sidebar {
+  .rn-global-panel,
+  .global-volume,
+  .currently-playing {
+    > .playlist-header {
+      background: var(--rn-control-header-color, var(--color-dark-1));
+      border-color: var(--rn-control-header-color, var(--color-dark-1));
+    }
+  }
+}

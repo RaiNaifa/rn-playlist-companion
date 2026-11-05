@@ -51,6 +51,10 @@
       "Suppress": "Don't show again"
     },
     "Settings": {
+      "ControlHeaderColor": {
+        "Name": "Section header color",
+        "Hint": "Background color of the headers: User Volume Control, Currently Playing, Play Queue, Playlist Companion.\nAn empty value restores Foundry's default color."
+      },
       "InfoColorForParameterButtons": {
         "Name": "Info color for parameter buttons",
         "Hint": "Changes the active-state color of the “Loop Sound” and “Link Sound to Queue” buttons for clearer color perception."
