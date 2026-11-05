@@ -165,10 +165,13 @@ function queueChangeRejection(message, sender) {
   return null;
 }
 
-export function addToQueue(sound) {
+export function addToQueue(sound, index) {
   if (!canManageQueueSound(sound)) return Promise.resolve(false);
   return changeQueue((state) => {
-    state.entries.push(soundEntry(sound));
+    // A drop outside a queue row has no slot, so it appends the sound.
+    const position =
+      Number.isInteger(index) && index >= 0 && index <= state.entries.length ? index : state.entries.length;
+    state.entries.splice(position, 0, soundEntry(sound));
     return state;
   });
 }

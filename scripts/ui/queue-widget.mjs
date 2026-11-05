@@ -31,6 +31,58 @@ function button(icon, label, action) {
   return control;
 }
 
+function dropPosition(event, list) {
+  // The upper and lower halves of a row represent the slots before and after it.
+  const row = event.target.closest?.(".rn-queue-sound");
+  if (!row || !list.contains(row)) return null;
+  const index = Number(row.dataset.index);
+  if (!Number.isInteger(index)) return null;
+  return {
+    row,
+    index: index + Number(event.clientY >= row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2),
+  };
+}
+
+function droppedSound(event) {
+  try {
+    const data = JSON.parse(event.dataTransfer.getData("text/plain"));
+    const sound = data.uuid ? fromUuidSync(data.uuid) : game.playlists.get(data.parentId)?.sounds.get(data._id);
+    return sound?.parent?.sounds && sound.path && canManageQueueSound(sound) ? sound : null;
+  } catch {
+    return null;
+  }
+}
+
+function acceptQueueDrop(target) {
+  // The companion window survives directory rerenders. Install its listeners only once.
+  if (!target || target.dataset.rnQueueDropTarget) return;
+  target.dataset.rnQueueDropTarget = "true";
+  target.addEventListener("dragover", (event) => {
+    if (event.target.closest?.(".rn-queue")) return;
+    if (event.dataTransfer.types.includes("text/rn-queue-index") || !event.dataTransfer.types.includes("text/plain"))
+      return;
+    event.preventDefault();
+    target.classList.add("rn-queue-drop-target");
+  });
+  target.addEventListener("dragleave", (event) => {
+    if (!target.contains(event.relatedTarget)) target.classList.remove("rn-queue-drop-target");
+  });
+  target.addEventListener(
+    "drop",
+    (event) => {
+      target.classList.remove("rn-queue-drop-target");
+      if (event.target.closest?.(".rn-queue")) return;
+      const sound = droppedSound(event);
+      if (!sound) return;
+      event.preventDefault();
+      event.stopPropagation();
+      addToQueue(sound).catch(reportError);
+    },
+    // Handle the drop before Foundry's directory listeners can consume it.
+    { capture: true },
+  );
+}
+
 function renderQueue(element) {
   element.querySelector(".rn-queue")?.remove();
   const surface = element.closest(".rn-player-companion-window") ? "companion" : "sidebar";
@@ -102,39 +154,46 @@ function renderQueue(element) {
       event.dataTransfer.setData("text/rn-queue-index", String(index));
       event.dataTransfer.effectAllowed = "move";
     });
-    row.addEventListener("dragover", (event) => event.preventDefault());
-    row.addEventListener("drop", (event) => {
-      // Queue rows carry a private drag type. Foundry's playlist drags fall through to the list.
-      if (!event.dataTransfer.types.includes("text/rn-queue-index")) return;
-      const source = Number(event.dataTransfer.getData("text/rn-queue-index"));
-      if (!Number.isInteger(source) || source < 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      changeQueue((current) => {
-        if (
-          !canManageQueueSound(queueSound(current.entries[source])) ||
-          !canManageQueueSound(queueSound(current.entries[index]))
-        )
-          return current;
-        const [item] = current.entries.splice(source, 1);
-        current.entries.splice(index, 0, item);
-        return current;
-      }).catch(reportError);
-    });
     list.append(row);
   });
-  list.addEventListener("dragover", (event) => event.preventDefault());
+  const clearIndicator = () => {
+    for (const row of list.querySelectorAll(".rn-drop-before, .rn-drop-after"))
+      row.classList.remove("rn-drop-before", "rn-drop-after");
+  };
+  list.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    clearIndicator();
+    const position = dropPosition(event, list);
+    position?.row.classList.add(
+      position.index === Number(position.row.dataset.index) ? "rn-drop-before" : "rn-drop-after",
+    );
+  });
+  list.addEventListener("dragleave", (event) => {
+    if (!list.contains(event.relatedTarget)) clearIndicator();
+  });
+  list.addEventListener("dragend", clearIndicator);
   list.addEventListener("drop", (event) => {
-    if (event.dataTransfer.types.includes("text/rn-queue-index")) return;
     event.preventDefault();
     event.stopPropagation();
-    try {
-      const data = JSON.parse(event.dataTransfer.getData("text/plain"));
-      const sound = data.uuid ? fromUuidSync(data.uuid) : game.playlists.get(data.parentId)?.sounds.get(data._id);
-      if (sound?.parent?.sounds && sound.path) addToQueue(sound).catch(reportError);
-    } catch (cause) {
-      reportError(cause);
+    const position = dropPosition(event, list);
+    clearIndicator();
+    if (event.dataTransfer.types.includes("text/rn-queue-index")) {
+      const source = Number(event.dataTransfer.getData("text/rn-queue-index"));
+      if (!Number.isInteger(source) || source < 0) return;
+      changeQueue((current) => {
+        if (!canManageQueueSound(queueSound(current.entries[source]))) return current;
+        if (position && !canManageQueueSound(queueSound(current.entries[Number(position.row.dataset.index)])))
+          return current;
+        const target = position?.index ?? current.entries.length;
+        const [item] = current.entries.splice(source, 1);
+        // Removing an earlier row shifts the destination slot one place left.
+        current.entries.splice(target > source ? target - 1 : target, 0, item);
+        return current;
+      }).catch(reportError);
+      return;
     }
+    const sound = droppedSound(event);
+    if (sound) addToQueue(sound, position?.index).catch(reportError);
   });
   wrapper.append(list);
   expandable.append(wrapper);
@@ -143,6 +202,9 @@ function renderQueue(element) {
 }
 
 export function decorateQueue(element) {
+  acceptQueueDrop(element.querySelector(".currently-playing:not(.rn-queue)"));
+  if (element.classList.contains("rn-player-companion"))
+    acceptQueueDrop(element.closest(".rn-player-companion-window"));
   for (const row of element.querySelectorAll(".directory-list .sound[data-playlist-id][data-sound-id]")) {
     const controls = row.querySelector(":scope > header > .sound-controls");
     const sound = game.playlists.get(row.dataset.playlistId)?.sounds.get(row.dataset.soundId);

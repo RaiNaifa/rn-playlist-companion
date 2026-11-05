@@ -277,6 +277,44 @@
   }
 }
 
+.currently-playing.rn-queue-drop-target,
+.rn-player-companion-window.rn-queue-drop-target {
+  outline: 2px dashed var(--color-text-accent);
+  outline-offset: -3px;
+}
+
+.rn-queue {
+  .playlist-sounds {
+    .rn-queue-sound {
+      position: relative;
+
+      &::after {
+        content: "";
+        position: absolute;
+        z-index: 1;
+        right: 0;
+        left: 0;
+        height: 2px;
+        background: var(--color-text-accent);
+        pointer-events: none;
+        visibility: hidden;
+      }
+
+      &.rn-drop-before::after {
+        top: 0;
+        transform: translateY(-50%);
+        visibility: visible;
+      }
+
+      &.rn-drop-after::after {
+        bottom: 0;
+        transform: translateY(50%);
+        visibility: visible;
+      }
+    }
+  }
+}
+
 .rn-import-preview {
   .rn-bulk-import-option {
     display: flex;
