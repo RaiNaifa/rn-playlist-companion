@@ -1,9 +1,10 @@
-import { reportError, t } from "../core/context.mjs";
+import { MODULE_ID, reportError, t } from "../core/context.mjs";
 import { decorateDirectory } from "./playlist-sidebar.mjs";
 
 let playerCompanion;
 // Keep this separate from Foundry's sidebar and retain it when this window is reopened.
 let companionVolumeExpanded = false;
+let companionPosition = null;
 const watchedSounds = new WeakSet();
 let transitionDepth = 0;
 let transitionGeneration = 0;
@@ -177,10 +178,15 @@ export function openMiniPlayer() {
       this.directory = new CompanionDirectory();
       this.directory.host = this.element.querySelector(".rn-player-companion-host");
       await this.renderChild(this.directory, { force: true });
+      if (companionPosition) this.setPosition(companionPosition);
     }
 
     async close(options) {
       if (this.directory) companionVolumeExpanded = this.directory._volumeExpanded;
+      if (this.rendered) {
+        const { left, top } = this.position;
+        companionPosition = { left, top };
+      }
       // ApplicationV2 only unlinks children in the main window. Close the tab ourselves.
       await this.directory?.close({ animate: false });
       await super.close(options);
@@ -191,6 +197,25 @@ export function openMiniPlayer() {
   playerCompanion.render({ force: true }).catch((cause) => {
     playerCompanion = null;
     reportError(cause);
+  });
+}
+
+export function toggleMiniPlayer() {
+  if (playerCompanion) {
+    playerCompanion.close().catch(reportError);
+  } else {
+    openMiniPlayer();
+  }
+}
+
+export function registerMiniPlayerKeybinding() {
+  game.keybindings.register(MODULE_ID, "toggleMiniPlayer", {
+    name: "RNPLAYCOMP.UI.ToggleMiniPlayer",
+    editable: [{ key: "KeyP" }],
+    onDown: () => {
+      toggleMiniPlayer();
+      return true;
+    },
   });
 }
 

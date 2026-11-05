@@ -5,6 +5,7 @@ import {
   endMiniPlayerTransition,
   openMiniPlayer,
   refreshMiniPlayer,
+  registerMiniPlayerKeybinding,
 } from "../scripts/ui/mini-player.mjs";
 
 test("player companion opens independently, focuses on repeat click, and reopens after closing", async () => {
@@ -44,12 +45,20 @@ test("player companion opens independently, focuses on repeat click, and reopens
     _configureRenderOptions() {}
     updateTimestamps() {}
   }
-  class Application {
+  class BaseApplication {
+    setPosition(position) {
+      this.position = { ...this.position, ...position };
+      return this.position;
+    }
+  }
+  class Application extends BaseApplication {
     constructor() {
+      super();
       this.rendered = false;
       this.focuses = 0;
       this.host = { children: [], replaceChildren: (...children) => (this.host.children = children) };
       this.element = { querySelector: () => this.host };
+      this.position = { left: 100, top: 100 };
       windows.push(this);
     }
     async render() {
@@ -65,9 +74,6 @@ test("player companion opens independently, focuses on repeat click, and reopens
     }
     bringToFront() {
       this.focuses++;
-    }
-    setPosition(position) {
-      return position;
     }
     async close() {
       this.rendered = false;
@@ -85,6 +91,16 @@ test("player companion opens independently, focuses on repeat click, and reopens
     i18n: { localize: (key) => key },
     playlists: [{ sounds: [{ playing: true, sound: audio }] }],
   };
+  let binding;
+  game.keybindings = {
+    register: (namespace, action, config) => {
+      binding = { namespace, action, config };
+    },
+  };
+  registerMiniPlayerKeybinding();
+  assert.equal(binding.namespace, "rn-playlist-companion");
+  assert.equal(binding.action, "toggleMiniPlayer");
+  assert.deepEqual(binding.config.editable, [{ key: "KeyP" }]);
   openMiniPlayer();
   openMiniPlayer();
   await new Promise((resolve) => setImmediate(resolve));
@@ -155,7 +171,9 @@ test("player companion opens independently, focuses on repeat click, and reopens
       clearedTimer = handle;
     };
     await instances[0]._onFirstRender();
-    await windows[0].close();
+    windows[0].setPosition({ left: 315, top: 240 });
+    assert.equal(binding.config.onDown(), true);
+    await new Promise((resolve) => setImmediate(resolve));
   } finally {
     globalThis.setInterval = nativeSetInterval;
     globalThis.clearInterval = nativeClearInterval;
@@ -163,9 +181,10 @@ test("player companion opens independently, focuses on repeat click, and reopens
   assert.equal(timerDelay, 1000);
   assert.equal(clearedTimer, 41);
   assert.equal(instances[0].rendered, false);
-  openMiniPlayer();
+  assert.equal(binding.config.onDown(), true);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(instances.length, 2);
   assert.equal(instances[1]._volumeExpanded, true);
+  assert.deepEqual(windows[1].position, { left: 315, top: 240 });
   await windows[1].close();
 });

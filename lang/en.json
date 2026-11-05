@@ -206,6 +206,7 @@
     "UI": {
       "MiniPlayer": "Player Companion",
       "OpenMiniPlayer": "Open Player Companion",
+      "ToggleMiniPlayer": "Toggle Player Companion",
       "Queue": "Play Queue",
       "AddToQueue": "Add Sound to Queue",
       "RemoveFromQueue": "Remove from Queue",

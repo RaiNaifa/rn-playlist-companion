@@ -18,7 +18,7 @@ import { registerConfigSavePlayback } from "./ui/config-save-playback.mjs";
 import { registerFolderLauncher } from "./ui/folder-launcher.mjs";
 import { registerHeaderColor } from "./ui/header-color.mjs";
 import { registerHotbarMacros } from "./ui/hotbar-macros.mjs";
-import { registerMiniPlayerUpdates } from "./ui/mini-player.mjs";
+import { registerMiniPlayerKeybinding, registerMiniPlayerUpdates } from "./ui/mini-player.mjs";
 import { registerParameterButtonColors } from "./ui/parameter-button-colors.mjs";
 import { registerPlayerPrivacySetting } from "./ui/player-privacy.mjs";
 import { registerPlaylistLoop } from "./ui/playlist-loop.mjs";
@@ -57,6 +57,7 @@ Hooks.once("init", () => {
   installCrossfadePlayback();
   patchDirectory();
   registerMiniPlayerUpdates();
+  registerMiniPlayerKeybinding();
 });
 
 Hooks.once("ready", async () => {
