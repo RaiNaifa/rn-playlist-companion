@@ -17,6 +17,7 @@ import { registerArchiveSettings } from "./ui/archive-dialog.mjs";
 import { registerConfigSavePlayback } from "./ui/config-save-playback.mjs";
 import { registerFolderLauncher } from "./ui/folder-launcher.mjs";
 import { registerHeaderColor } from "./ui/header-color.mjs";
+import { registerHotbarMacros } from "./ui/hotbar-macros.mjs";
 import { registerMiniPlayerUpdates } from "./ui/mini-player.mjs";
 import { registerParameterButtonColors } from "./ui/parameter-button-colors.mjs";
 import { registerPlayerPrivacySetting } from "./ui/player-privacy.mjs";
@@ -35,6 +36,7 @@ Hooks.once("init", () => {
   registerPlayerPrivacySetting();
   registerParameterButtonColors();
   registerHeaderColor();
+  registerHotbarMacros();
   registerPreviewSettings();
   registerSoundWindowSettings();
   registerReleaseNotesSettings();

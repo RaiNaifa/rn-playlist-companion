@@ -95,6 +95,10 @@
       "SoundRowBudget": {
         "Name": "Minimum displayed sounds",
         "Hint": "The number of sound rows kept in the list across all expanded playlists. This increases automatically when a taller window needs more rows. A lower value reduces interface load but may update rows more often while scrolling. A higher value keeps more nearby rows ready but increases interface load."
+      },
+      "HotbarDrop": {
+        "Name": "Macro on drop",
+        "Hint": "Choose whether dropping a sound, playlist, or playlist folder onto the macro hotbar creates a standard macro or a macro that controls playback."
       }
     },
     "Archive": {
@@ -252,7 +256,13 @@
       "MoveFolderConfirm": "Move folder “{name}” and all its contents {destination}?\nFolders: {folders}, playlists: {playlists}.\nScene links to moved playlists in other worlds may need to be selected again.",
       "MovePlaylistConfirm": "Move playlist “{name}” {destination}?\nFolders: {folders}, playlists: {playlists}.\nScene links to moved playlists in other worlds may need to be selected again.",
       "ToGlobal": "to global storage for all worlds",
-      "ToLocal": "to this world only"
+      "ToLocal": "to this world only",
+      "MacroChoice": "Macro action",
+      "MacroToggle": "Start / Stop",
+      "MacroStandard": "Open configuration",
+      "MacroAsk": "Ask each time",
+      "MacroControl": "Playback control macro",
+      "MacroNative": "Standard macro"
     },
     "Errors": {
       "ArchiveMissing": "Archived item was not found.",
