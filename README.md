@@ -71,6 +71,12 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 - Playlists have a **Random Playback** mode. Each sound is selected at random without repeating the currently playing sound. This mode does not shuffle the order of sounds in the playlist.
 - **Previous Sound** works for the last 20 transitions. **Next Sound** always makes a new random selection. The history is cleared when the playlist is fully stopped.
 
+#### Crossfade
+
+- Enabling crossfade in **Playlist Companion** lets the next sound start before the previous one fades out, making the transition smoother.
+- Crossfade respects the standard fade duration settings for sounds and playlists. A value of 0 means no fade. An empty sound fade field inherits the playlist value, while an empty playlist fade field inherits the value in **Playlist Companion** (or 0 when crossfade is off).
+- Crossfade does not affect transitions with pauses (it does not interfere with **Silence Time**).
+
 #### Playlists Performance
 
 - Collapsed playlists do not render their sound rows, helping Foundry’s interface stay responsive when the playlist sidebar is open, even with many sounds.
@@ -152,6 +158,12 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 
 - Для плейлистов добавлен режим воспроизведения **Случайный**. В нём каждый включаемый звук выбирается случайно, не повторяя при этом текущий. Порядок звуков в самом плейлисте в этом режиме не перемешивается.
 - **Предыдущий звук** работает для последних 20 переходов. **Следующий звук** всегда делает новый случайный выбор. При полной остановке плейлиста история очищается.
+
+#### Перекрёстное затухание
+
+- Включение функции в **Playlist Companion** позволяет новому звуку начать играть ещё до того, как стихнет предыдущий, что обеспечивает более плавный переход.
+- Учитывает стандартную настройку длительности затухания у звуков и плейлистов. Значение 0 означает переход без затухания. Пустое поле затухания у звука наследует значение плейлиста, пустое поле у плейлиста наследует значение в Playlist Companion (либо 0 если Перекрёстное затухание выключено).
+- Не влияет на переходы с паузами (не смешивается с Временем тишины).
 
 #### Производительность плейлистов
 

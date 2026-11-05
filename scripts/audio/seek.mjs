@@ -1,6 +1,7 @@
 import { publish } from "../core/context.mjs";
 import { resetBoundedSeek } from "./bounded-playback.mjs";
 import { readBounds } from "./bounds.mjs";
+import { noteRepeatSeek } from "./repeat-cycle.mjs";
 
 const queuedSeeks = new WeakMap();
 
@@ -33,6 +34,7 @@ export async function applySeek(document, seconds) {
   if (!audio?.playing) return false;
   if (audio.element) {
     audio.element.currentTime = target;
+    noteRepeatSeek(audio, target);
     // Foundry derives currentTime from startTime, so keep its clock aligned with the media element.
     audio.startTime = audio.context.currentTime - target;
     audio.volume = document.volume;
@@ -42,6 +44,7 @@ export async function applySeek(document, seconds) {
     audio.pause();
     audio.pausedTime = target;
     if (!document.playing || document.sound !== audio) return false;
+    noteRepeatSeek(audio, target);
     await audio.play({ offset: 0, volume: document.volume, loop: audio.loop });
   } else return false;
   document._scheduleFadeOut?.();

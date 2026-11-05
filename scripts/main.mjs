@@ -1,5 +1,7 @@
 import { installBoundedPlayback } from "./audio/bounded-playback.mjs";
 import { registerBufferDurationSettings } from "./audio/buffer-duration.mjs";
+import { installCrossfadePlayback } from "./audio/crossfade-playback.mjs";
+import { registerCrossfadeSettings } from "./audio/crossfade-settings.mjs";
 import { registerPreviewSettings } from "./audio/preview.mjs";
 import { installQueuePlayback } from "./audio/queue.mjs";
 import { installRandomPlayback } from "./audio/random-playback.mjs";
@@ -37,6 +39,7 @@ Hooks.once("init", () => {
   registerSoundWindowSettings();
   registerReleaseNotesSettings();
   registerBufferDurationSettings();
+  registerCrossfadeSettings();
   registerSoundBounds();
   registerPlaylistLoop();
   registerPlaylistTint();
@@ -49,6 +52,7 @@ Hooks.once("init", () => {
   installRandomPlayback();
   installSilencePlayback();
   installQueuePlayback();
+  installCrossfadePlayback();
   patchDirectory();
   registerMiniPlayerUpdates();
 });

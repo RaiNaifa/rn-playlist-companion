@@ -1,5 +1,6 @@
 import { MODULE_ID, t } from "../core/context.mjs";
 import { readBounds } from "./bounds.mjs";
+import { configuredFade } from "./crossfade-settings.mjs";
 import { repeatRange } from "./silence-data.mjs";
 
 const delayedRepeat = (sound) => {
@@ -135,7 +136,7 @@ export function installBoundedPlayback() {
       let fading = false;
       let ending = false;
       let previousPosition = null;
-      const currentFade = () => Math.min(this.fade ?? this.parent?.fade ?? 0, (bounds.end - bounds.start) * 500);
+      const currentFade = () => Math.min(configuredFade(this), (bounds.end - bounds.start) * 500);
       const controller = {
         timer: null,
         check: null,

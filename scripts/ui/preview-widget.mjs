@@ -15,6 +15,7 @@ import { decorateSeekWidgets, updateSeekWidgets } from "./seek-widget.mjs";
 import { soundChannelIconClass } from "./sound-channel-icon.mjs";
 
 let previewTimer;
+let syncingPreviewVolume = false;
 
 export function updatePreviewTime() {
   const sound = previewSound();
@@ -42,17 +43,24 @@ function createPreviewVolumeSlider() {
   slider.dataset.tooltip = volumeToPercentage(slider.value);
   slider.ariaValueText = volumeToPercentage(slider.value, { label: true });
   slider.addEventListener("change", () => {
+    if (syncingPreviewVolume) return;
     game.settings.set("rn-playlist-companion", "previewVolume", foundry.audio.AudioHelper.inputToVolume(slider.value));
     const tooltip = volumeToPercentage(slider.value);
     slider.dataset.tooltipText = tooltip;
     slider.ariaValueText = volumeToPercentage(slider.value, { label: true });
     game.tooltip.activate(slider, { text: tooltip });
-    for (const other of document.querySelectorAll(".playlists-sidebar .rn-preview-slider")) {
-      if (other !== slider) {
-        other.value = slider.value;
-        other.dataset.tooltipText = tooltip;
-        other.ariaValueText = slider.ariaValueText;
+    // Updating sibling sliders can dispatch another change event in Foundry.
+    syncingPreviewVolume = true;
+    try {
+      for (const other of document.querySelectorAll(".playlists-sidebar .rn-preview-slider")) {
+        if (other !== slider) {
+          if (other.value !== slider.value) other.value = slider.value;
+          other.dataset.tooltipText = tooltip;
+          other.ariaValueText = slider.ariaValueText;
+        }
       }
+    } finally {
+      syncingPreviewVolume = false;
     }
   });
   return slider;

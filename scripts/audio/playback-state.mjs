@@ -7,6 +7,7 @@ export function storedData(data) {
   if (copy.flags?.[MODULE_ID]) {
     delete copy.flags[MODULE_ID].randomHistory;
     delete copy.flags[MODULE_ID].silencePending;
+    delete copy.flags[MODULE_ID].crossfadeTransition;
   }
   copy.playing = false;
   for (const sound of copy.sounds ?? []) {

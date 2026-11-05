@@ -90,6 +90,8 @@ function withoutLiveFields({
       const moduleFlags = { ...otherFlags[MODULE_ID] };
       delete moduleFlags.randomPlayback;
       delete moduleFlags.silencePending;
+      // This flag describes an active transition and is never saved as playlist data.
+      delete moduleFlags.crossfadeTransition;
       if (Object.keys(moduleFlags).length) otherFlags[MODULE_ID] = moduleFlags;
       else delete otherFlags[MODULE_ID];
     }
@@ -117,7 +119,8 @@ function applyLiveChanges(playlist, data, { forceSync = false } = {}) {
   if (
     JSON.stringify(playlist.flags?.[MODULE_ID]?.silencePending ?? null) !==
       JSON.stringify(data.flags?.[MODULE_ID]?.silencePending ?? null) ||
-    Boolean(playlist.flags?.[MODULE_ID]?.randomPlayback) !== Boolean(data.flags?.[MODULE_ID]?.randomPlayback)
+    Boolean(playlist.flags?.[MODULE_ID]?.randomPlayback) !== Boolean(data.flags?.[MODULE_ID]?.randomPlayback) ||
+    playlist.flags?.[MODULE_ID]?.crossfadeTransition?.id !== data.flags?.[MODULE_ID]?.crossfadeTransition?.id
   ) {
     playlistChanges.flags = data.flags ?? { [MODULE_ID]: { randomPlayback: false } };
   }

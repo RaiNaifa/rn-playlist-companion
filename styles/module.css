@@ -104,6 +104,26 @@
       }
     }
 
+    .rn-crossfade-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+
+      > span {
+        .rn-crossfade-unit {
+          color: var(--color-text-subtle);
+        }
+      }
+
+      > .rn-crossfade-duration {
+        flex: none;
+        width: 3.5rem;
+        height: 1.5rem;
+        text-align: right;
+      }
+    }
+
     .rn-toggle-input[type="checkbox"] {
       flex: none;
       width: 34px;

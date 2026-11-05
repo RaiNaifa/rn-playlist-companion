@@ -1,5 +1,6 @@
 import { MODULE_ID, t } from "../core/context.mjs";
 import { readBounds } from "./bounds.mjs";
+import { configuredFade as soundFade } from "./crossfade-settings.mjs";
 import { clampSeek } from "./seek.mjs";
 
 const VOLUME_SETTING = "previewVolume";
@@ -234,7 +235,7 @@ export async function togglePreview(nextSound) {
     next.addEventListener("stop", conclude);
     await next.load();
     if (request !== generation) return;
-    const configuredFade = nextSound.fade ?? nextSound.parent?.fade ?? 0;
+    const configuredFade = soundFade(nextSound);
     const bounds = readBounds(nextSound, next.duration);
     fadeDuration = Number.isFinite(next.duration)
       ? Math.min(configuredFade, Math.ceil((bounds ? bounds.end - bounds.start : next.duration) / 2) * 1000)

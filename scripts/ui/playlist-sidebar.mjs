@@ -1,3 +1,4 @@
+import { CROSSFADE_ENABLED, CROSSFADE_FADE, crossfadeEnabled, fallbackFade } from "../audio/crossfade-settings.mjs";
 import { previewSound, stopPreview } from "../audio/preview.mjs";
 import { pendingSilence } from "../audio/silence-data.mjs";
 import { error, isGlobal, isGlobalFolder, reportError, state, t } from "../core/context.mjs";
@@ -423,12 +424,18 @@ export function decorateDirectory(app) {
     const showHidden = existing.querySelector(".rn-show-hidden");
     if (edit) edit.checked = uiState.editing;
     if (showHidden) showHidden.checked = uiState.showHidden;
+    const crossfade = existing.querySelector(".rn-crossfade-toggle");
+    const fade = existing.querySelector(".rn-crossfade-duration");
+    if (crossfade && document.activeElement !== crossfade) crossfade.checked = crossfadeEnabled();
+    if (fade && document.activeElement !== fade) fade.value = String(fallbackFade());
     return;
   }
   const panel = document.createElement("div");
   panel.className = `rn-global-panel global-control ${uiState.open ? "expanded" : ""}`;
   const management = `<li><label class="rn-toggle-row"><span>${t("UI.ManagementMode")}</span><input type="checkbox" class="rn-toggle-input rn-edit-toggle" ${uiState.editing ? "checked" : ""}></label></li>
-      <li><label class="rn-toggle-row"><span>${t("UI.ShowHidden")}</span><input type="checkbox" class="rn-toggle-input rn-show-hidden" ${uiState.showHidden ? "checked" : ""}></label></li>`;
+      <li><label class="rn-toggle-row"><span>${t("UI.ShowHidden")}</span><input type="checkbox" class="rn-toggle-input rn-show-hidden" ${uiState.showHidden ? "checked" : ""}></label></li>
+      <li><label class="rn-toggle-row"><span>${t("UI.Crossfade")}</span><input type="checkbox" class="rn-toggle-input rn-crossfade-toggle" ${crossfadeEnabled() ? "checked" : ""}></label></li>
+      <li><label class="rn-crossfade-row"><span>${t("UI.CrossfadeDuration")} <span class="rn-crossfade-unit">${t("UI.CrossfadeDurationUnit")}</span></span><input type="number" class="rn-crossfade-duration" min="0" step="1" value="${fallbackFade()}"></label></li>`;
   panel.innerHTML = `<header class="playlist-header"><i class="expand fa-solid fa-angle-up" inert></i><strong>Playlist Companion</strong></header>
     <div class="expandable"><div class="wrapper"><ol class="plain">${management}</ol></div></div>`;
   panel.querySelector("header").addEventListener("click", () => {
@@ -442,6 +449,28 @@ export function decorateDirectory(app) {
   panel.querySelector(".rn-show-hidden")?.addEventListener("change", (event) => {
     uiState.showHidden = event.currentTarget.checked;
     app.render({ parts: ["directory"] });
+  });
+  panel.querySelector(".rn-crossfade-toggle")?.addEventListener("change", async (event) => {
+    try {
+      await game.settings.set("rn-playlist-companion", CROSSFADE_ENABLED, event.currentTarget.checked);
+    } catch (cause) {
+      event.currentTarget.checked = crossfadeEnabled();
+      reportError(cause);
+    }
+  });
+  panel.querySelector(".rn-crossfade-duration")?.addEventListener("change", async (event) => {
+    const input = event.currentTarget;
+    const milliseconds = Number(input.value);
+    if (!Number.isInteger(milliseconds) || milliseconds < 0) {
+      input.value = String(fallbackFade());
+      return;
+    }
+    try {
+      await game.settings.set("rn-playlist-companion", CROSSFADE_FADE, milliseconds);
+    } catch (cause) {
+      input.value = String(fallbackFade());
+      reportError(cause);
+    }
   });
   volume.before(panel);
 }
