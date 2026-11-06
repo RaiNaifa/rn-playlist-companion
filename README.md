@@ -4,7 +4,7 @@
 
 [English](#english) | [Русский](#русский)
 
-## Gallery
+## Overview Screenshot
 
 <p align="center">
   <img src="docs/images/overview.webp" alt="Overview of Playlist Companion features">
