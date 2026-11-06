@@ -308,6 +308,7 @@
     .rn-queue-sound {
       position: relative;
 
+      /* biome-ignore lint/style/noDescendingSpecificity: The queue drop marker is unrelated to the toggle pseudo-element above. */
       &::after {
         content: "";
         position: absolute;
@@ -942,6 +943,7 @@
 
 .playlists-sidebar {
   .currently-playing {
+    /* biome-ignore lint/style/noDescendingSpecificity: The currently playing sound is separate from windowed directory sounds. */
     .sound {
       .sound-playback {
         align-items: center;
@@ -1031,6 +1033,7 @@
 
 html.rn-info-parameter-buttons {
   .playlists-sidebar {
+    /* biome-ignore lint/style/noDescendingSpecificity: Button colors do not override the restricted sound controls display rule. */
     .sound > header > .sound-controls {
       button[data-action="soundRepeat"],
       .rn-queue-link {
@@ -1058,6 +1061,7 @@ html.rn-info-parameter-buttons {
       }
     }
 
+    /* biome-ignore lint/style/noDescendingSpecificity: Queue button colors do not override the restricted sound controls display rule. */
     .rn-queue-sound > header > .sound-controls {
       button.fa-arrows-rotate {
         --button-text-color: var(--color-text-primary);
@@ -1081,6 +1085,7 @@ html.rn-info-parameter-buttons {
     min-height: 150px;
   }
 
+  /* biome-ignore lint/style/noDescendingSpecificity: The companion window and release notes dialog are different applications. */
   > .window-content {
     padding: 0 0 8px;
   }
@@ -1098,6 +1103,7 @@ html.rn-info-parameter-buttons {
   overflow-y: auto;
 
   :is(.global-volume, .currently-playing) {
+    /* biome-ignore lint/style/noDescendingSpecificity: Companion header padding does not override restricted sound visibility. */
     > header {
       padding: 6px 8px;
     }
