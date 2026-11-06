@@ -7,11 +7,7 @@
 ## Gallery
 
 <p align="center">
-  <img src="docs/images/controls.webp" alt="Playlist Companion controls">
-  <img src="docs/images/interface.webp" alt="Playlist Companion interface">
-</p>
-<p align="center">
-  <img src="docs/images/silence.webp" alt="Silence boundaries">
+  <img src="docs/images/overview.webp" alt="Overview of Playlist Companion features">
 </p>
 
 ## English
