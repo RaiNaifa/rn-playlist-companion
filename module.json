@@ -1,7 +1,7 @@
 {
   "id": "rn-playlist-companion",
   "title": "RN Playlist Companion",
-  "description": "Playlists enhancement: preview sounds before playing them, make playlists global across your worlds, control their visibility, and more.",
+  "description": "Extends Foundry VTT’s built-in playlists and improves their performance. Adds Import Folder Structure, global playlists shared across worlds, local sound preview, Play Queue, improved playback controls, Crossfade, and more.",
   "version": "0.4.0",
   "url": "https://github.com/RaiNaifa/rn-playlist-companion",
   "manifest": "https://raw.githubusercontent.com/RaiNaifa/rn-playlist-companion/master/module.json",

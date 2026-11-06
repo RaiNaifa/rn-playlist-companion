@@ -12,7 +12,7 @@
 
 ## English
 
-Enhance Foundry VTT’s built-in playlists and improve their performance. Preview sounds before playing them, make playlists global across your worlds, control their visibility, and more.
+Extends Foundry VTT’s built-in playlists and improves their performance. Added features: Import Folder Structure, global playlists (shared across all worlds), local sound preview, Play Queue, improved playback controls, and Crossfade. And even more!
 
 ### Manual Installation
 
@@ -125,7 +125,7 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 
 ## Русский
 
-Расширяет возможности встроенных плейлистов Foundry VTT и улучшает их производительность. Предпрослушивайте звуки перед воспроизведением, используйте общие плейлисты во всех мирах, управляйте их видимостью, и многое другое.
+Расширяет возможности встроенных плейлистов Foundry VTT и улучшает их производительность. Добавлены: импорт структуры папок, глобальные плейлисты (общие для всех миров), локальное предпрослушивание звуков, очередь воспроизведения, улучшенное управление воспроизведением и перекрёстное затухание. И не только!
 
 ### Установка вручную
 
