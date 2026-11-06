@@ -177,7 +177,7 @@ export function openMiniPlayer() {
       // Render a distinct tab inside this window; reusing the sidebar tab would move it.
       this.directory = new CompanionDirectory();
       this.directory.host = this.element.querySelector(".rn-player-companion-host");
-      await this.renderChild(this.directory, { force: true });
+      await this.directory.render({ force: true });
       if (companionPosition) this.setPosition(companionPosition);
     }
 

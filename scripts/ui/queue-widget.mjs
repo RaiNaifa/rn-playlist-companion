@@ -84,11 +84,14 @@ function acceptQueueDrop(target) {
 }
 
 function renderQueue(element) {
-  element.querySelector(".rn-queue")?.remove();
+  const existing = element.querySelector(".rn-queue");
   const surface = element.closest(".rn-player-companion-window") ? "companion" : "sidebar";
   const state = queueState();
   const visible = visibleQueueEntries(state.entries);
-  if (!visible.length) return;
+  if (!visible.length) {
+    existing?.remove();
+    return;
+  }
   const playing = element.querySelector(".currently-playing:not(.rn-queue)");
   if (!playing) return;
   const widget = document.createElement("section");
@@ -198,7 +201,8 @@ function renderQueue(element) {
   wrapper.append(list);
   expandable.append(wrapper);
   widget.append(header, expandable);
-  playing.after(widget);
+  if (existing) existing.replaceWith(widget);
+  else playing.after(widget);
 }
 
 export function decorateQueue(element) {

@@ -438,6 +438,12 @@ function mountBounds(app, element) {
 function installSoundScroll(form) {
   const body = form.querySelector(".window-content");
   if (!body || body.querySelector(":scope > .rn-sound-scroll")) return;
+  // Foundry 13's ProseMirror editor still tracks its original DOM position here.
+  // Moving it into a wrapper during the render hook breaks its next state update.
+  if (game.release?.generation === 13) {
+    body.classList.add("rn-sound-scroll-fallback");
+    return;
+  }
   const footer = body.querySelector(":scope > footer.form-footer");
   if (!footer) {
     body.classList.add("rn-sound-scroll-fallback");

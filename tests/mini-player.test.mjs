@@ -26,6 +26,8 @@ test("player companion opens independently, focuses on repeat click, and reopens
     render(options) {
       this.rendered = true;
       this.renders.push(options);
+      // Simulate ApplicationV2 inserting the directory into its host during its own render (Foundry 13 has no renderChild).
+      if (this.host) this._insertElement({ id: "directory-element" });
       return Promise.resolve(this);
     }
     bringToFront() {
@@ -67,11 +69,6 @@ test("player companion opens independently, focuses on repeat click, and reopens
       return this;
     }
     async _onRender() {}
-    async renderChild(child, options) {
-      child._insertElement({ id: "directory-element" });
-      await child.render(options);
-      return child;
-    }
     bringToFront() {
       this.focuses++;
     }
