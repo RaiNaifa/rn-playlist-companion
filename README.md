@@ -39,6 +39,11 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 - ID conflicts between global and local items can be resolved automatically or by the GM.
 - ⚠️ World backups do not include global playlists. To view and restore saved versions of global playlists, open Global Playlist Archive in the module settings.
 
+#### Playlist Import
+
+- Importing an audio folder creates playlist folders and playlists with the same nested structure and contents.
+- A preview shows the result before import and lets you choose whether to create empty playlists from empty folders.
+
 #### Playlists Visibility
 
 - Playlists and folders can be hidden from the sidebar without being deleted.
@@ -60,22 +65,38 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 - **Currently Playing** and Preview show time relative to the selected section instead of the full file.
 - Changing the file path leaves old boundaries inactive until they are checked or analyzed again.
 
+#### Random Playback
+
+- Playlists have a **Random Playback** mode. Each sound is selected at random without repeating the currently playing sound. This mode does not shuffle the order of sounds in the playlist.
+- **Previous Sound** works for the last 20 transitions. **Next Sound** always makes a new random selection. The history is cleared when the playlist is fully stopped.
+
 #### Silence Time
 
 - Unlike Find Silence, which trims silence at the edges of an audio file, enabling **Silence Time** adds pauses between the playback of playlist tracks and between repeats of a looping sound.
 - During silence, **Currently Playing** shows a countdown and playback controls.
 - Combine it with Random Playback to make your surroundings feel alive: a distant rumble of thunder, an unexpected owl call, or an eerie whisper.
 
-#### Random Playback
-
-- Playlists have a **Random Playback** mode. Each sound is selected at random without repeating the currently playing sound. This mode does not shuffle the order of sounds in the playlist.
-- **Previous Sound** works for the last 20 transitions. **Next Sound** always makes a new random selection. The history is cleared when the playlist is fully stopped.
-
 #### Crossfade
 
-- Enabling crossfade in **Playlist Companion** lets the next sound start before the previous one fades out, making the transition smoother.
+- Enabling crossfade in the Playlist Companion section lets the next sound start before the previous one fades out, making the transition smoother.
 - Crossfade respects the standard fade duration settings for sounds and playlists. A value of 0 means no fade. An empty sound fade field inherits the playlist value, while an empty playlist fade field inherits the value in **Playlist Companion** (or 0 when crossfade is off).
 - Crossfade does not affect transitions with pauses (it does not interfere with **Silence Time**).
+
+#### Play Queue
+
+- Sounds from any playlist can be added to a separate queue. When the next queued sound starts, the playing sound linked to the queue stops, even if the two sounds belong to different playlists.
+- The **Add Sound to Queue** button places a sound at the end of the queue. Dragging a sound into the queue lets you choose its position.
+- Only one playing sound can be linked to the queue at a time. If the active sound and the next queued sound belong to the same playlist, they can transition even when the active sound is not linked to the queue.
+- Queued sounds can also be started manually, previewed, or removed from the queue.
+
+#### Playback Controls
+
+- **Player Companion** is a separate window for controlling current playback, the queue, and volume. It helps avoid frequent switches to the Playlists tab in the sidebar. Hotkey: **P**.
+- A **seek bar** can be opened for any playing sound to jump to a specific time (it is always visible for a previewed sound). Its button appears beside the current playback time.
+- The **Currently Playing** header provides controls to stop or pause/resume all playing sounds at once.
+- Looping of an entire playlist can be disabled in its settings now (sequential playback only).
+- The **Launch Controls** option in a playlist folder's settings adds controls to start or stop its playlists together, including those in subfolders.
+- Dragging a sound, playlist, or playlist folder to the hotbar creates a **playback macro** that controls playback and shows its status.
 
 #### Playlists Performance
 
@@ -98,8 +119,12 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 
 #### Minor Improvements
 
+- A playlist's background tint can be set in its settings.
+- A setting for the color of section headers in the Playlists tab.
+- A setting for more visible color highlighting of parameter button states.
 - Long sound and playlist names scroll on hover when they do not fit in the sidebar.
 - GMs can hover over a playlist or sound name to see its description in a compact tooltip.
+- Folder icons show when playlists inside them are playing.
 - Sound icons reflect their audio channel.
 
 ## Русский
@@ -127,6 +152,11 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 - Конфликты ID между глобальными и локальными объектами могут разрешаться автоматически или GMом.
 - ⚠️ Резервные копии миров не включают глобальные плейлисты. Для просмотра и восстановления сохранённых версий глобальных плейлистов откройте Архив глобальных плейлистов в настройках модуля.
 
+#### Импорт плейлистов
+
+- Импорт папки с аудиофайлами создаёт папки плейлистов и плейлисты с такой же вложенностью и содержимым.
+- Перед импортом показывается предварительный результат, в котором можно также выбрать создание пустых плейлистов из пустых папок.
+
 #### Видимость плейлистов
 
 - Плейлисты и папки можно скрывать с боковой панели, не удаляя их.
@@ -148,22 +178,39 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 - В разделе **Сейчас играет** время отображается относительно выбранного участка, а не всего файла.
 - После изменения пути к файлу прежние границы не используются, пока их не проверить или не определить заново.
 
+#### Случайное воспроизведение
+
+- Для плейлистов добавлен режим воспроизведения **Случайный**. В нём каждый включаемый звук выбирается случайно, не повторяя при этом текущий. Порядок звуков в самом плейлисте в этом режиме не перемешивается.
+- **Предыдущий звук** работает для последних 20 переходов. **Следующий звук** всегда делает новый случайный выбор. При полной остановке плейлиста история очищается.
+
 #### Время тишины
 
 - В отличие от Поиска тишины, который отсекает тишину на границах файла, включение опции **Время тишины** позволяет добавить паузы между проигрыванием треков плейлиста и между повторами зацикленного звука.
 - Для времени тишины в **Сейчас играет** отображаются обратный отсчёт и элементы управления.
 - Сочетайте с режимом Случайного воспроизведения, чтобы заставить окружение жить своей жизнью: редкий раскат грома вдалеке, неожиданный крик совы или зловещий шёпот.
 
-#### Случайное воспроизведение
-
-- Для плейлистов добавлен режим воспроизведения **Случайный**. В нём каждый включаемый звук выбирается случайно, не повторяя при этом текущий. Порядок звуков в самом плейлисте в этом режиме не перемешивается.
-- **Предыдущий звук** работает для последних 20 переходов. **Следующий звук** всегда делает новый случайный выбор. При полной остановке плейлиста история очищается.
-
 #### Перекрёстное затухание
 
-- Включение функции в **Playlist Companion** позволяет новому звуку начать играть ещё до того, как стихнет предыдущий, что обеспечивает более плавный переход.
+- Включение функции в блоке Playlist Companion позволяет новому звуку начать играть ещё до того, как стихнет предыдущий, что обеспечивает более плавный переход.
 - Учитывает стандартную настройку длительности затухания у звуков и плейлистов. Значение 0 означает переход без затухания. Пустое поле затухания у звука наследует значение плейлиста, пустое поле у плейлиста наследует значение в Playlist Companion (либо 0 если Перекрёстное затухание выключено).
 - Не влияет на переходы с паузами (не смешивается с Временем тишины).
+
+#### Очередь воспроизведения
+
+- Звуки из любых плейлистов можно добавлять в отдельную очередь. При этом играющий звук, связанный с очередью, будет отключаться при воспроизведении следующего из очереди, даже если они из разных плейлистов.
+- Добавление звука специальной кнопкой поместит его в конец очереди, а с помощью перетаскивания можно выбрать его позицию самостоятельно.
+- С очередью можно связать только один воспроизводимый звук. При этом, если активный звук и следующий звук в очереди из одного и того же плейлиста, они могут сменить друг друга, даже если активный звук не связан с очередью.
+- Звуки в очереди также можно запускать вручную, предпрослушивать и удалять из неё.
+
+#### Управление воспроизведением
+
+- **Player Companion** — отдельное окно для управления текущим воспроизведением, очередью и громкостью. Позволяет не так часто переключаться на вкладку плейлистов в боковом меню. Горячая клавиша: **P**.
+- Для каждого воспроизводимого звука можно открыть **шкалу времени** для его перемотки на нужный момент (у предпрослушиваемого звука шкала видна всегда). Кнопка открытия шкалы находится рядом с текущим временем воспроизведения.
+- Из заголовка раздела **Сейчас играет** теперь можно остановить или приостановить/возобновить сразу все воспроизводимые звуки.
+- Повторение всего плейлиста можно отключить в его настройках (только для последовательного воспроизведения).
+- Опция **Управление запуском** в настройках папки добавляет кнопки для одновременного запуска или остановки плейлистов в ней и во вложенных папках.
+- При перетаскивании звука, плейлиста или папки плейлистов на панель быстрого доступа создаётся **макрос для управления воспроизведением** с отображением его состояния.
+
 
 #### Производительность плейлистов
 
@@ -186,6 +233,10 @@ https://github.com/RaiNaifa/rn-playlist-companion/releases/latest/download/modul
 
 #### Небольшие улучшения
 
+- Оттенок фона плейлиста настраивается в его параметрах.
+- Настройка цвета заголовков разделов для вкладки плейлистов.
+- Настройка для более заметного цветового выделения состояния кнопок параметров.
 - Длинные названия звуков и плейлистов прокручиваются при наведении, если не помещаются на боковой панели.
 - GM может навести указатель на название плейлиста или звука, чтобы увидеть его описание в компактной подсказке.
-- Значки звуков отражают их аудиоканал.
+- Иконки папок показывают активное состояние воспроизведения вложенных плейлистов.
+- Иконки звуков отражают их аудиоканал.

@@ -1,6 +1,26 @@
 // Add release notes for each published version. Keep both languages in sync.
 export const RELEASE_NOTES = {
   en: {
+    "0.4.0": {
+      Added: [
+        "Import the structure of a selected folder to create playlist folders and playlists with the same nesting and contents.",
+        "Play Queue. Add sounds from any playlists to a separate list using a button or drag and drop. Only one playing sound can be linked to the queue at a time.",
+        "A separate Player Companion window for controlling current playback, the queue, and volume. Hotkey: P.",
+        "Crossfade for smoother transitions between playlist sounds. It uses the standard playlist and sound fade settings when they are set.",
+        "A seek bar for any playing or previewed sound. Open it with the button next to the current playback time.",
+        "Stop all playing sounds with one click in Currently Playing.",
+        "Option to disable looping of the entire playlist in sequential playback mode.",
+        "The Launch Controls option in playlist folder settings adds controls to start or stop its playlists together, including those in subfolders.",
+        "Personal Silence Time after the previous track for an individual playlist sound.",
+        "Playlist background tint in playlist settings.",
+        "The “Section header color” client setting.",
+        "The “Info color for parameter buttons” client setting.",
+        "A new way to create macros by dragging sounds, playlists, or their folders onto the hotbar. The macros let you control playback and see its status directly on the hotbar.",
+      ],
+      Changed: [
+        "Audio ducking during preview is now adjusted in User Volume Controls.",
+      ],
+    },
     "0.3.2": {
       Added: [
         "Configurable Silence Time between playlist tracks and repeats of a looping sound.",
@@ -47,6 +67,26 @@ export const RELEASE_NOTES = {
     },
   },
   ru: {
+    "0.4.0": {
+      Добавлено: [
+        "Импорт структуры выбранной папки для создания папок и плейлистов такой же вложенности и содержания.",
+        "Очередь воспроизведения. Позволяет добавлять (кнопкой или перетаскиванием) звуки из любых плейлистов в отдельный список. Только один воспроизводимый звук одновременно может быть связан с очередью.",
+        "Отдельное окно Player Companion для управления текущим воспроизведением, очередью и громкостью. Горячая клавиша - P.",
+        "Перекрёстное затухание для плавных переходов между звуками плейлиста. Учитывает стандартные настройки затухания плейлистов и звуков, если они заданы.",
+        "Шкала времени для перемотки любого воспроизводимого и предпрослушиваемого звука. Открывается кнопкой рядом с текущим временем воспроизведения.",
+        "Возможность остановить одним кликом в «Сейчас играет» все воспроизводимые звуки.",
+        "Возможность отключить повторение всего плейлиста для режима последовательного воспроизведения.",
+        "Опция «Управление запуском» в настройках папки плейлиста позволяет добавить ей элементы управления вложенными плейлистами для их одновременного запуска или остановки (включая подпапки).",
+        "Личное «Время тишины» после предыдущего трека для звука плейлиста.",
+        "Настройка оттенка фона плейлиста в его параметрах.",
+        "Клиентская настройка «Цвет заголовков разделов».",
+        "Клиентская настройка «Инфо-цвет для кнопок параметров».",
+        "Новый способ создания макросов при перетаскивании звуков, плейлистов и их папок на панель быстрого доступа: позволяет управлять их воспроизведением и отслеживать статус воспроизведения прямо из панели быстрого доступа.",
+      ],
+      Изменено: [
+        "Приглушение аудио во время предпрослушивания теперь настраивается в Управлении громкостью.",
+      ],
+    },
     "0.3.2": {
       Добавлено: [
         "Настраиваемое «Время тишины» между треками плейлиста и повторами зацикленного звука.",
